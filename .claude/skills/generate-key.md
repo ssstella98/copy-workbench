@@ -14,6 +14,9 @@ metadata:
     - segments: 各段分解说明
 ---
 
+> **规则同步：** 本文件与 `Key Rules/key-rules-config.json` 保持对齐。修改任一文件后，应同步更新另一文件。
+> 当前对齐版本：2026-07-03
+
 # Copy Key 生成规则
 
 ## 格式
@@ -39,49 +42,55 @@ Domain.Page.Module.Title.Body
 
 ### Page — 页面名
 
-根据 Figma Frame 名称生成。规则：
-1. 去掉项目前缀（如 `HMH `、`PFC `）
+直接读取 Figma Frame 名称，规则：
+1. 去掉项目前缀（如 `HMH `、`PFC `、`Refund `）
 2. 中文 → 翻译为英文
-3. 英文 → 空格/连字符分隔 → 每词首字母大写
+3. 英文 → 空格/连字符/下划线分隔 → 每词首字母大写
 4. 取前 3 个单词
 
-枚举参考：`HomePage`, `ListPage`, `CheckOutPage`, `PaymentPage`, `OrderConfirmPage`, `LandingPage`
+示例：
+- `HMH Home Page` → `HomePage`
+- `Payment Page` → `PaymentPage`
+- `HMH Product List Page` → `ProductListPage`
+- `Shopping cart` → `ShoppingCart`
+
+Page 段可手动修改，不限于固定枚举。
 
 ### Module — 功能模块（26个枚举值）
 
 按文案的交互方式/位置判断：
 
-| 类别 | 枚举值 | 判断依据 |
+| 类别 | 枚举值 | 判断关键词（与 key-rules-config.json 对齐） |
 |------|--------|----------|
-| **Layer 容器** | `Modal` | 弹窗中的确认/取消/关闭按钮 |
-| | `Sheet` | 底部/侧边抽屉面板中的文字 |
-| | `PoPup` | 气泡浮层、轻量提示 |
-| **Navigation 导航** | `NavigationBar` | 底部/顶部导航栏，短词（门票、餐饮、房间、交通、我的） |
-| **Feedback 反馈** | `Toast` | 成功/失败/轻提示，短暂出现 |
-| | `ActionBar` | 底部固定操作栏，CTA按钮区域 |
-| **Form 表单** | `Switch` | 开关控件旁的文字 |
+| **Layer 容器** | `Modal` | 确认、取消、关闭、知道了、确定 |
+| | `Sheet` | 抽屉、面板 |
+| | `PoPup` | 气泡弹窗、轻量浮层（位置在底部且短文本也可是 ActionBar） |
+| **Navigation 导航** | `NavigationBar` | 门票、餐饮、房间、交通、设施、活动、商城、权益、我的、首页 |
+| **Feedback 反馈** | `Toast` | 成功、失败、已、提示 |
+| | `ActionBar` | 去支付、提交订单、立即预订、确认支付、购买 |
+| **Form 表单** | `Switch` | 开关控件旁文字 |
 | | `RadioButton` | 单选框标签 |
 | | `Checkbox` | 复选框标签 |
-| | `TextField` | 文本输入框标签/占位 |
+| | `TextField` | 文本输入框标签 |
 | | `Dropdown` | 下拉选择器标签 |
 | | `Capsule` | 胶囊选择器 |
 | | `Calendar` | 日期选择器 |
 | **Function 功能** | `Icon` | 图标 |
-| | `Button` | 按钮上的文字（支付、下单、预订、提交、取消） |
-| | `Hyperlink` | 超链接（了解更多、查看详情、查看全部） |
-| **Content 内容** | `Placeholder` | 输入框占位文字（请输入...） |
-| | `Label` | 输入框旁标签，含冒号 |
-| | `Title` | 页面/区块标题 |
-| | `Subtitle` | 副标题、解释性文字 |
-| | `Notes` | 长文本正文（>40字符）：政策、条款、说明 |
+| | `Button` | 按钮、支付、下单、购买、预订、立即、确认、提交、取消、返回 |
+| | `Hyperlink` | 了解更多、查看详情、查看更多、查看全部、详情 |
+| **Content 内容** | `Placeholder` | 请输入、请选择、输入 |
+| | `Label` | :、：（含冒号即 Label） |
+| | `Title` | title、标题 |
+| | `Subtitle` | 副标题、解释 |
+| | `Notes` | 政策、条款、细则、长文本 >40 字符 |
 | | `Tooltip` | 悬停提示 |
-| **Layout 布局** | `Banner` | 顶部横幅/头图区域文案 |
-| | `ToDoList` | 待办/任务清单项 |
-| | `KeyEntrance` | 核心入口/CTA |
-| | `Upsell` | 追加销售/推荐（云闪付、银联、优惠、折扣） |
-| | `Activity` | 活动模块（演出、巡游、庆典） |
-| | `Facility` | 设施模块（行李寄存、健身房、泳池、餐厅） |
-| | `TopTips` | 顶部提示条（须知、提示、注意、公告） |
+| **Layout 布局** | `Banner` | 欢迎、特选、享受、体验、Explore |
+| | `ToDoList` | 登记、匹配、预约、添加、管理行程 |
+| | `KeyEntrance` | 支付、下单、预订、购买、提交、确认支付、去支付 |
+| | `Upsell` | 推荐、云闪付、银联、优惠、折扣、立减、精选、热门 |
+| | `Activity` | 活动、演出、巡游、烟花、派对、节日、庆典 |
+| | `Facility` | 行李寄存、行李、寄存、健身房、泳池、餐厅、SPA、接送、巴士 |
+| | `TopTips` | 须知、提示、注意、公告、提醒 |
 
 ### Title — 文案标题
 

@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Producer Copy Workbench — 原型图</title>
+<style>
+  :root {
+    --bg: #f2f3f5;
+    --surface: #fff;
+    --border: #e0e2e6;
+    --text: #1a1c1e;
+    --text2: #6b7280;
+    --text3: #9ca3af;
+    --blue: #2563eb;
+    --blue-bg: #eff6ff;
+    --blue-border: #bfdbfe;
+    --red: #dc2626;
+    --red-bg: #fef2f2;
+    --green: #16a34a;
+    --green-bg: #f0fdf4;
+    --amber: #d97706;
+    --amber-bg: #fffbeb;
+    --purple: #7c3aed;
+    --purple-bg: #f5f3ff;
+    --sidebar-w: 230px;
+    --header-h: 52px;
+    --radius: 8px;
+    --radius-sm: 5px;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #e8eaed;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh;
+    padding: 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .device {
+    width: 1360px; max-width: 100%;
+    height: 880px;
+    background: var(--bg);
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06);
+    display: flex; flex-direction: column; overflow: hidden; position: relative;
+  }
+  .device-top {
+    height: var(--header-h); background: #1e1e24; color: #fff;
+    display: flex; align-items: center; padding: 0 16px;
+    font-size: 12px; font-weight: 600; letter-spacing: .3px; gap: 10px; flex-shrink: 0;
+  }
+  .device-top .dots { display: flex; gap: 6px; }
+  .device-top .dots span { width: 10px; height: 10px; border-radius: 50%; }
+  .device-top .dots .r { background: #ff5f57; } .device-top .dots .y { background: #febc2e; } .device-top .dots .g { background: #28c840; }
+  .device-top .title { flex:1; text-align: center; padding-right: 40px; }
+
+  .app { display: flex; flex: 1; overflow: hidden; }
+
+  /* Tabs */
+  .screen-tabs {
+    display: flex; gap: 0; background: #e0e2e6; margin: 8px 12px 0;
+    border-radius: var(--radius-sm); padding: 3px; flex-shrink: 0;
+  }
+  .screen-tabs button {
+    flex: 1; border: none; background: transparent; padding: 7px 12px;
+    font-size: 12px; font-weight: 500; cursor: pointer; border-radius: 4px;
+    color: var(--text2); font-family: inherit; transition: .15s; white-space: nowrap;
+  }
+  .screen-tabs button.active { background: #fff; color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
+
+  .screen { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* Sidebar */
+  .sidebar {
+    width: var(--sidebar-w); background: #f8f9fb;
+    border-right: 1px solid var(--border); padding: 14px 0;
+    display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto;
+  }
+  .sidebar .nav-section { padding: 0 14px; margin-bottom: 6px; }
+  .sidebar .nav-section .label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--text3); margin-bottom: 6px; padding: 0 6px;
+  }
+  .sidebar .nav-item {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 6px; border-radius: var(--radius-sm);
+    font-size: 12px; color: var(--text2); cursor: pointer; margin-bottom: 1px; transition: .1s;
+  }
+  .sidebar .nav-item:hover { background: #e8eaef; }
+  .sidebar .nav-item.active { background: #e0e7ff; color: var(--blue); font-weight: 600; }
+  .sidebar .sep { border-top: 1px solid var(--border); margin: 8px 14px; }
+
+  /* Tree in sidebar */
+  .tree { font-size: 11px; padding: 0 6px; }
+  .tree-node { padding: 2px 0; cursor: pointer; }
+  .tree-node .name { padding: 3px 6px; border-radius: 3px; display: flex; align-items: center; gap: 4px; }
+  .tree-node .name:hover { background: #f3f4f6; }
+  .tree-node.selected > .name { background: var(--blue-bg); color: var(--blue); font-weight: 600; }
+  .tree-children { padding-left: 16px; border-left: 1px dashed #e0e2e6; margin-left: 5px; }
+  .tree-node .count { font-size: 10px; color: var(--text3); margin-left: auto; }
+
+  /* Main content */
+  .main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: #fff; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .toolbar h2 { font-size: 15px; font-weight: 700; }
+  .toolbar .info { font-size: 11px; color: var(--text2); }
+
+  /* Content area below toolbar */
+  .content { flex: 1; display: flex; overflow: hidden; }
+
+  /* Panels */
+  .panel-figma {
+    width: 340px; flex-shrink: 0; border-right: 1px solid var(--border);
+    background: #fafbfc; display: flex; flex-direction: column; overflow-y: auto;
+  }
+  .panel-figma .figma-header {
+    padding: 10px 14px; font-size: 12px; font-weight: 600;
+    background: #fff; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-fields {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    background: #fff;
+  }
+  .panel-fields .fields-header {
+    padding: 10px 14px; font-size: 12px; font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-fields .fields-table-wrap { flex: 1; overflow-y: auto; }
+
+  /* Figma mock */
+  .figma-mock-wrap {
+    padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .figma-mock {
+    background: #fff; width: 280px; border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08); padding: 16px; position: relative; font-size: 12px;
+  }
+  .figma-mock .highlight {
+    display: inline-block; padding: 2px 5px; margin: -2px -5px;
+    background: rgba(37,99,235,.10); border: 1px dashed var(--blue); border-radius: 2px;
+  }
+  .figma-mock .highlight.dim { background: rgba(37,99,235,.04); border: 1px dashed #93c5fd; }
+  .legend {
+    font-size: 10px; color: var(--text3); text-align: center;
+    background: #fff; padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border);
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 14px; border-radius: var(--radius-sm);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: #fff;
+    color: var(--text); font-family: inherit; transition: .1s; white-space: nowrap;
+  }
+  .btn:hover { background: #f9fafb; }
+  .btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .btn.primary:hover { opacity: .9; }
+  .btn.danger { color: var(--red); border-color: #fecaca; }
+  .btn.sm { padding: 4px 10px; font-size: 11px; }
+  .btn.icon-only { padding: 5px 7px; }
+
+  /* Tags */
+  .tag {
+    display: inline-block; font-size: 10px; font-weight: 500;
+    padding: 2px 8px; border-radius: 10px;
+  }
+  .tag.blue { background: var(--blue-bg); color: var(--blue); }
+  .tag.green { background: var(--green-bg); color: var(--green); }
+  .tag.amber { background: var(--amber-bg); color: var(--amber); }
+  .tag.red { background: var(--red-bg); color: var(--red); }
+  .tag.purple { background: var(--purple-bg); color: var(--purple); }
+  .tag.gray { background: #f3f4f6; color: #6b7280; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th {
+    text-align: left; padding: 7px 8px; font-weight: 600; font-size: 10px;
+    color: var(--text2); border-bottom: 1px solid var(--border);
+    background: #fafbfc; position: sticky; top: 0; z-index: 1;
+  }
+  td { padding: 7px 8px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  tr:hover td { background: #fafbfc; }
+  .td-key { font-family: 'SF Mono', 'Cascadia Code', 'Menlo', monospace; font-size: 10px; color: var(--purple); max-width: 220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .td-figma-text { font-size: 12px; max-width: 140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* Status dots */
+  .dot-row { display: flex; gap: 5px; align-items: center; }
+  .dot-row .d { width: 7px; height: 7px; border-radius: 50%; }
+  .dot-row .d.ok { background: var(--green); }
+  .dot-row .d.warn { background: var(--amber); }
+  .dot-row .d.empty { background: #d1d5db; }
+
+  /* Modal */
+  .modal-overlay {
+    position: absolute; inset: 0; background: rgba(0,0,0,.35);
+    display: none; align-items: center; justify-content: center; z-index: 20; border-radius: 14px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 12px; padding: 24px;
+    width: 440px; max-width: 90%; box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  }
+  .modal h3 { font-size: 16px; margin-bottom: 16px; }
+  .modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
+  /* Form */
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .3px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 7px 10px; font-size: 13px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; background: #fff;
+  }
+  .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-bg); }
+
+  /* Project cards */
+  .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .project-card {
+    background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 20px; cursor: pointer; transition: .15s; border: 1.5px solid transparent;
+  }
+  .project-card:hover { border-color: var(--blue-border); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .project-card h4 { font-size: 14px; margin-bottom: 6px; }
+  .project-card .meta { font-size: 11px; color: var(--text2); margin-bottom: 10px; }
+  .project-card .progress-bar { height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 8px; }
+  .project-card .progress-bar .fill { height: 100%; border-radius: 2px; background: var(--blue); }
+
+  /* Copy edit screen */
+  .inline-edit {
+    border: 1px solid transparent; background: transparent;
+    padding: 3px 6px; border-radius: 3px; font-family: inherit; font-size: 12px;
+    width: 100%; cursor: text;
+  }
+  .inline-edit:hover { border-color: #d1d5db; }
+  .inline-edit:focus { outline: none; border-color: var(--blue); background: #fff; }
+  .key-segments { display: flex; align-items: center; gap: 2px; font-family: 'SF Mono', 'Cascadia Code', 'Menlo', monospace; font-size: 11px; flex-wrap: wrap; }
+  .key-segments .seg { background: #f3f4f6; padding: 2px 6px; border-radius: 3px; color: var(--text); }
+  .key-segments .dot { color: var(--text3); font-weight: 700; }
+  .checklist { font-size: 11px; color: var(--text2); }
+  .checklist div { padding: 3px 0; display: flex; align-items: center; gap: 6px; }
+
+  .toast {
+    position: absolute; bottom: 20px; right: 24px;
+    background: #1e1e24; color: #fff; padding: 10px 18px;
+    border-radius: var(--radius-sm); font-size: 12px; font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,.2); display: none; z-index: 10;
+  }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--text3); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; margin-bottom: 16px; }
+
+  /* Screen 1 special: full main with padding */
+  .screen.s1 .main { padding: 20px 24px; overflow-y: auto; gap: 16px; }
+
+  /* Selected row highlight */
+  tr.row-sel td { background: #fffbeb; }
+  tr.row-dup td { background: #fef2f2; }
+</style>
+</head>
+<body>
+
+<div class="device" id="app">
+
+  <!-- Top bar -->
+  <div class="device-top">
+    <div class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+    <span class="title">Producer Copy Workbench — MVP Prototype</span>
+    <span style="font-size:10px;opacity:.6;">v0.2</span>
+  </div>
+
+  <!-- Screen tabs: 4 -->
+  <div class="screen-tabs" id="screenTabs">
+    <button class="active" data-screen="s1">🏠 项目列表</button>
+    <button data-screen="s2">📁 项目工作区 · Visitor Mode</button>
+    <button data-screen="s3">✏️ 文案编辑</button>
+    <button data-screen="s4">📤 导出</button>
+  </div>
+
+  <!-- ================================ -->
+  <!-- SCREEN 1: Project List           -->
+  <!-- ================================ -->
+  <div class="screen active s1" id="s1">
+    <div class="main">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <h2 style="font-size:20px;font-weight:700;">项目列表</h2>
+          <p style="font-size:13px;color:var(--text2);margin-top:2px;">管理所有文案项目，多人并行互不干扰</p>
+        </div>
+        <button class="btn primary" onclick="showModal('newProjectModal')">+ 新建项目</button>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <input type="text" placeholder="🔍 搜索项目名称..." style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;">
+        <select style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;">
+          <option>全部状态</option><option>Draft</option><option>Copy In Progress</option><option>Copy Completed</option><option>Approved</option>
+        </select>
+      </div>
+      <div class="project-grid">
+        <div class="project-card" onclick="switchScreen('s2')">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <h4>Mobile Order · Visitor Mode</h4>
+            <span class="tag green">Copy In Progress</span>
+          </div>
+          <div class="meta">Created: 2026/05/20 · 3 members · zh-CN / en-US / ja-JP</div>
+          <div class="meta" style="margin-bottom:4px;">字段: 187 · 完成: 124 (66%)</div>
+          <div class="progress-bar"><div class="fill" style="width:66%;"></div></div>
+        </div>
+        <div class="project-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <h4>Annual Pass · Renewal Flow</h4>
+            <span class="tag amber">Draft</span>
+          </div>
+          <div class="meta">Created: 2026/05/12 · 2 members · zh-CN / en-US / ja-JP</div>
+          <div class="meta" style="margin-bottom:4px;">字段: 94 · 完成: 12 (13%)</div>
+          <div class="progress-bar"><div class="fill" style="width:13%;"></div></div>
+        </div>
+        <div class="project-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <h4>Hotel Booking · Check-in</h4>
+            <span class="tag blue">Approved</span>
+          </div>
+          <div class="meta">Created: 2026/03/08 · 4 members · zh-CN / en-US</div>
+          <div class="meta" style="margin-bottom:4px;">字段: 312 · 完成: 312 (100%)</div>
+          <div class="progress-bar"><div class="fill" style="width:100%;background:var(--green);"></div></div>
+        </div>
+        <div class="project-card" style="opacity:.6;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <h4>Merchandise · Pre-order</h4>
+            <span class="tag gray">Archived</span>
+          </div>
+          <div class="meta">Created: 2025/11/15 · 3 members · zh-CN / en-US / ja-JP</div>
+          <div class="meta" style="margin-bottom:4px;">字段: 156 · 完成: 156 (100%)</div>
+          <div class="progress-bar"><div class="fill" style="width:100%;background:#9ca3af;"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================ -->
+  <!-- SCREEN 2: Workspace (Merged)     -->
+  <!-- ================================ -->
+  <div class="screen" id="s2">
+    <div class="app">
+      <!-- ======= SIDEBAR ======= -->
+      <div class="sidebar">
+        <!-- Project switcher -->
+        <div class="nav-section">
+          <div class="label">项目</div>
+          <div class="nav-item active">📋 Visitor Mode</div>
+          <div class="nav-item">🎫 Annual Pass</div>
+          <div class="nav-item">🏨 Hotel Booking</div>
+        </div>
+        <div class="sep"></div>
+
+        <!-- Page tree -->
+        <div class="nav-section">
+          <div class="label">📁 页面层级（从 Figma Frame 提取）</div>
+          <div style="display:flex;gap:4px;margin-bottom:8px;padding:0 6px;">
+            <button class="btn sm">✏️</button>
+            <button class="btn sm">➕</button>
+          </div>
+          <div class="tree">
+            <div class="tree-node">
+              <div class="name">📂 1. Homepage Popup <span class="count">5</span></div>
+              <div class="tree-children">
+                <div class="tree-node"><div class="name">🖼️ Popup - Default <span class="count">3</span></div></div>
+                <div class="tree-node"><div class="name">🖼️ Popup - Location <span class="count">2</span></div></div>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="name">📂 2. Menu <span class="count">8</span></div>
+              <div class="tree-children">
+                <div class="tree-node"><div class="name">🖼️ Menu - Main <span class="count">4</span></div></div>
+                <div class="tree-node"><div class="name">🖼️ Menu - Detail <span class="count">4</span></div></div>
+              </div>
+            </div>
+            <div class="tree-node selected">
+              <div class="name">📂 3. Submit Order <span class="count">№</span></div>
+              <div class="tree-children">
+                <div class="tree-node selected"><div class="name">🖼️ Checkout <span class="count">23</span></div></div>
+                <div class="tree-node"><div class="name">🖼️ Payment <span class="count">8</span></div></div>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="name">📂 4.1 Order Finished <span class="count">4</span></div>
+            </div>
+            <div class="tree-node">
+              <div class="name">📂 4.2 Order Unpaid <span class="count">3</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="sep"></div>
+
+        <!-- Figma sync -->
+        <div style="padding:0 14px;font-size:11px;color:var(--text2);">
+          <div style="font-weight:600;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">🔗 Figma 文件</div>
+          <div>MobileOrder_VisitorMode_v3</div>
+          <div style="color:var(--green);margin:3px 0;">● 已同步 · 2026/05/24 14:32</div>
+          <button class="btn sm" style="margin-top:4px;">🔄 重新同步</button>
+        </div>
+        <div class="sep"></div>
+
+        <!-- Members -->
+        <div class="nav-section">
+          <div class="label">项目成员</div>
+          <div style="font-size:11px;padding:3px 6px;color:var(--text2);">👤 Stella (Producer)</div>
+          <div style="font-size:11px;padding:3px 6px;color:var(--text2);">👤 Jason (Producer)</div>
+          <div style="font-size:11px;padding:3px 6px;color:var(--text3);cursor:pointer;">+ 添加成员</div>
+        </div>
+        <div class="sep"></div>
+
+        <!-- Status -->
+        <div style="padding:6px 14px;">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">状态</div>
+          <select style="width:100%;padding:5px 8px;font-size:11px;border:1px solid var(--border);border-radius:4px;font-family:inherit;">
+            <option>Copy In Progress</option><option>Draft</option><option>Copy Completed</option><option>Under Review</option><option>Approved</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ======= MAIN ======= -->
+      <div class="main">
+        <!-- Toolbar -->
+        <div class="toolbar">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <h2>📁 Submit Order / Checkout</h2>
+            <span class="tag blue">23 fields</span>
+            <span style="font-size:11px;color:var(--text2);">系统识别 31 个 TEXT 节点 · 已确认 23 个</span>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn sm">🔄 重新扫描</button>
+            <button class="btn sm" style="color:var(--red);border-color:#fecaca;">忽略重复项 (2)</button>
+            <button class="btn primary sm">✅ 确认并生成 Key</button>
+          </div>
+        </div>
+
+        <!-- Content: Figma preview + Field table -->
+        <div class="content">
+          <!-- Left: Figma preview -->
+          <div class="panel-figma">
+            <div class="figma-header">
+              Figma 预览 · Checkout
+              <span style="font-size:10px;color:var(--text3);">🟦 已识别节点</span>
+            </div>
+            <div class="figma-mock-wrap">
+              <div class="figma-mock">
+                <!-- Header area -->
+                <div style="font-weight:700;font-size:14px;margin-bottom:4px;">
+                  <span class="highlight">确认订单</span>
+                </div>
+                <div style="color:#666;font-size:11px;margin-bottom:12px;">
+                  <span class="highlight dim">请确认您的订单信息</span>
+                </div>
+
+                <!-- Cart items -->
+                <div style="border-top:1px solid #eee;padding-top:8px;">
+                  <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                    <span>牛肉汉堡 ×1</span><span style="color:#999;">$45</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                    <span>可乐 ×2</span><span style="color:#999;">$30</span>
+                  </div>
+                </div>
+
+                <!-- Total -->
+                <div style="border-top:1px solid #eee;margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:700;">
+                  <span class="highlight">总计</span>
+                  <span>$75</span>
+                </div>
+
+                <!-- CTA -->
+                <div style="margin-top:12px;background:var(--blue);color:#fff;text-align:center;padding:8px;border-radius:6px;font-weight:600;">
+                  <span class="highlight" style="border-color:#fff;background:rgba(255,255,255,.2);">确认下单</span>
+                </div>
+                <div style="text-align:center;font-size:10px;color:#999;margin-top:6px;">
+                  <span class="highlight dim">微信支付</span>
+                </div>
+              </div>
+              <div class="legend">🟦 蓝色虚线 = 已识别的 TEXT 节点<br>（深色 = 已确认保留 · 浅色 = 待确认）</div>
+            </div>
+          </div>
+
+          <!-- Right: Field table -->
+          <div class="panel-fields">
+            <div class="fields-header">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span>字段列表</span>
+                <span class="tag blue">23 confirmed</span>
+              </div>
+              <div style="display:flex;gap:4px;">
+                <select style="padding:4px 8px;font-size:10px;border:1px solid var(--border);border-radius:3px;font-family:inherit;">
+                  <option>全部字段</option><option>仅已确认</option><option>仅待确认</option><option>仅重复</option>
+                </select>
+                <button class="btn sm">全选</button>
+                <button class="btn sm">取消全选</button>
+              </div>
+            </div>
+            <div class="fields-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:28px;"><input type="checkbox" checked></th>
+                    <th style="width:28px;">#</th>
+                    <th>Key</th>
+                    <th style="width:70px;">Type</th>
+                    <th style="width:24px;">中</th>
+                    <th style="width:24px;">EN</th>
+                    <th style="width:24px;">日</th>
+                    <th style="width:64px;">识别状态</th>
+                    <th style="width:36px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><input type="checkbox" checked></td><td>1</td>
+                    <td class="td-key">VisitorMode.SubmitOrder.Checkout.Header.Title</td>
+                    <td><span class="tag blue">Title</span></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><span class="tag green">已确认</span></td>
+                    <td><button class="btn sm icon-only" onclick="switchScreen('s3')">✏️</button></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked></td><td>2</td>
+                    <td class="td-key">VisitorMode.SubmitOrder.Checkout.Header.Subtitle</td>
+                    <td><span class="tag blue">Subtitle</span></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><span class="tag green">已确认</span></td>
+                    <td><button class="btn sm icon-only" onclick="switchScreen('s3')">✏️</button></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked></td><td>3</td>
+                    <td class="td-key">VisitorMode.SubmitOrder.Checkout.Cart.EmptyState</td>
+                    <td><span class="tag amber">Error</span></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><span class="tag green">已确认</span></td>
+                    <td><button class="btn sm icon-only" onclick="switchScreen('s3')">✏️</button></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked></td><td>4</td>
+                    <td class="td-key">VisitorMode.SubmitOrder.Checkout.Cart.ItemLabel</td>
+                    <td><span class="tag purple">Label</span></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><span class="tag green">已确认</span></td>
+                    <td><button class="btn sm icon-only" onclick="switchScreen('s3')">✏️</button></td>
+                  </tr>
+                  <tr class="row-sel">
+                    <td><input type="checkbox" checked></td><td>5</td>
+                    <td class="td-key">VisitorMode.SubmitOrder.Checkout.FooterBar.Confirmation</td>
+                    <td><span class="tag green">Button</span></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><span class="tag green">已确认</span></td>
+                    <td><button class="btn sm icon-only" style="background:var(--blue-bg);" onclick="switchScreen('s3')">✏️</button></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked></td><td>6</td>
+                    <td class="td-key">VisitorMode.SubmitOrder.Checkout.FooterBar.TotalPrice</td>
+                    <td><span class="tag purple">Label</span></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d warn"></span></div></td>
+                    <td><span class="tag green">已确认</span></td>
+                    <td><button class="btn sm icon-only" onclick="switchScreen('s3')">✏️</button></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked></td><td>7</td>
+                    <td class="td-key">VisitorMode.SubmitOrder.Checkout.Payment.WeChatPay</td>
+                    <td><span class="tag green">Button</span></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><span class="tag green">已确认</span></td>
+                    <td><button class="btn sm icon-only" onclick="switchScreen('s3')">✏️</button></td>
+                  </tr>
+                  <!-- Not yet confirmed items -->
+                  <tr style="background:#fffbeb;">
+                    <td><input type="checkbox"></td><td>8</td>
+                    <td class="td-key" style="color:var(--text3);">--- 待生成 ---</td>
+                    <td><span class="tag">待选</span></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><span class="tag amber">待确认</span></td>
+                    <td></td>
+                  </tr>
+                  <tr style="background:#fffbeb;">
+                    <td><input type="checkbox"></td><td>9</td>
+                    <td class="td-key" style="color:var(--text3);">--- 待生成 ---</td>
+                    <td><span class="tag">待选</span></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><span class="tag amber">疑似动态数据</span></td>
+                    <td></td>
+                  </tr>
+                  <tr class="row-dup">
+                    <td><input type="checkbox" checked></td><td>10</td>
+                    <td class="td-key" style="color:var(--text3);">--- 待生成 ---</td>
+                    <td><span class="tag">待选</span></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><span class="tag red">疑似重复</span></td>
+                    <td></td>
+                  </tr>
+                  <!-- More confirmed items -->
+                  <tr>
+                    <td><input type="checkbox" checked></td><td>11</td>
+                    <td class="td-key">VisitorMode.SubmitOrder.Checkout.Modal.CancelTitle</td>
+                    <td><span class="tag amber">Error</span></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><div class="dot-row"><span class="d empty"></span></div></td>
+                    <td><span class="tag green">已确认</span></td>
+                    <td><button class="btn sm icon-only" onclick="switchScreen('s3')">✏️</button></td>
+                  </tr>
+                  <tr>
+                    <td><input type="checkbox" checked></td><td>12</td>
+                    <td class="td-key">VisitorMode.SubmitOrder.Checkout.Modal.CancelMsg</td>
+                    <td><span class="tag purple">Label</span></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d ok"></span></div></td>
+                    <td><div class="dot-row"><span class="d warn"></span></div></td>
+                    <td><span class="tag green">已确认</span></td>
+                    <td><button class="btn sm icon-only" onclick="switchScreen('s3')">✏️</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================ -->
+  <!-- SCREEN 3: Copy Editing            -->
+  <!-- ================================ -->
+  <div class="screen" id="s3">
+    <div class="main" style="padding:16px 20px;overflow-y:auto;gap:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <h2 style="font-size:18px;font-weight:700;">文案编辑 · Checkout 页面</h2>
+          <p style="font-size:12px;color:var(--text2);">共 23 个字段 · 中文 20/23 · English 18/23 · 日本語 15/23</p>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <select style="padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:inherit;">
+            <option>全部字段</option><option>仅未完成</option><option>仅 Button</option><option>仅 Error</option>
+          </select>
+          <button class="btn sm">📥 批量导入</button>
+          <button class="btn primary sm">💾 保存</button>
+          <button class="btn sm" onclick="switchScreen('s2')">↩ 返回工作区</button>
+        </div>
+      </div>
+
+      <!-- Active field editor -->
+      <div class="card" style="border:2px solid var(--blue-border);background:var(--blue-bg);">
+        <div style="display:flex;align-items:flex-start;gap:14px;">
+          <!-- Key info -->
+          <div style="width:300px;flex-shrink:0;">
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;">Key</div>
+            <div class="key-segments" style="margin:4px 0;">
+              <span class="seg">VisitorMode</span><span class="dot">.</span>
+              <span class="seg">SubmitOrder</span><span class="dot">.</span>
+              <span class="seg">Checkout</span><span class="dot">.</span>
+              <span class="seg">FooterBar</span><span class="dot">.</span>
+              <span class="seg" style="background:var(--blue-bg);border:1px solid var(--blue-border);">Confirmation</span>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <span class="tag green">Button</span>
+              <span style="font-size:10px;color:var(--text2);">max 20 chars</span>
+            </div>
+            <div style="margin-top:8px;background:#fff;border-radius:6px;padding:10px 12px;border:1px solid var(--border);">
+              <div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:4px;">📋 Button 场景 Checklist</div>
+              <div class="checklist">
+                <div><span style="color:var(--green);font-weight:700;">✓</span> Normal (默认)</div>
+                <div><span style="color:var(--green);font-weight:700;">✓</span> Disabled (不可用)</div>
+                <div>○ Loading (加载中)</div>
+              </div>
+            </div>
+            <div style="margin-top:6px;font-size:10px;color:var(--text2);">
+              引用 Key: <span style="color:var(--text3);">无</span>
+              <button class="btn sm" style="margin-left:4px;">🔗 设置引用</button>
+            </div>
+          </div>
+
+          <!-- Copy editing -->
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:2px;">🇨🇳 中文 (简体)</div>
+              <input value="确认下单" style="font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:#fff;width:100%;font-family:inherit;">
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:2px;">🇺🇸 English</div>
+              <input value="Place Order" style="font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:#fff;width:100%;font-family:inherit;">
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:2px;">🇯🇵 日本語</div>
+              <input value="注文を確定する" style="font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:4px;background:#fff;width:100%;font-family:inherit;">
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:2px;">📝 备注</div>
+              <input placeholder="添加备注（业务背景、约束条件等）..." style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:4px;background:#fff;width:100%;color:var(--text3);font-family:inherit;">
+            </div>
+          </div>
+
+          <!-- Figma thumbnail -->
+          <div style="width:120px;flex-shrink:0;background:#fff;border-radius:6px;border:1px solid var(--border);padding:8px;text-align:center;">
+            <div style="font-size:9px;color:var(--text3);margin-bottom:3px;">Figma 参考</div>
+            <div style="background:var(--blue);color:#fff;padding:5px 8px;border-radius:4px;font-size:10px;font-weight:600;">确认下单</div>
+            <div style="margin-top:3px;font-size:8px;color:var(--text3);">FooterBar · Bottom</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick nav table -->
+      <div class="card" style="overflow-y:auto;flex:1;">
+        <div class="card-header"><h3>其他字段</h3><span style="font-size:10px;color:var(--text2);">点击切换编辑</span></div>
+        <table>
+          <thead><tr><th>Key</th><th>Type</th><th>中文</th><th>English</th><th>日本語</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr><td class="td-key">...Checkout.Header.Title</td><td><span class="tag blue">Title</span></td><td>确认订单</td><td>Confirm Order</td><td>注文確認</td><td><span class="tag green">完成</span></td></tr>
+            <tr><td class="td-key">...Checkout.Header.Subtitle</td><td><span class="tag blue">Subtitle</span></td><td>请确认您的订单信息</td><td>Please confirm your order</td><td style="color:var(--text3);font-style:italic;">待填写</td><td><span class="tag amber">待完成</span></td></tr>
+            <tr><td class="td-key">...Checkout.Cart.EmptyState</td><td><span class="tag amber">Error</span></td><td>购物车是空的</td><td>Your cart is empty</td><td>カートは空です</td><td><span class="tag green">完成</span></td></tr>
+            <tr style="background:#f9fafb;"><td class="td-key">...Checkout.FooterBar.TotalPrice</td><td><span class="tag purple">Label</span></td><td>总计</td><td>Total</td><td style="color:var(--text3);font-style:italic;">待填写</td><td><span class="tag amber">待完成</span></td></tr>
+            <tr><td class="td-key">...Checkout.Payment.WeChatPay</td><td><span class="tag green">Button</span></td><td>微信支付</td><td>WeChat Pay</td><td>WeChatペイ</td><td><span class="tag green">完成</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================ -->
+  <!-- SCREEN 4: Export                 -->
+  <!-- ================================ -->
+  <div class="screen" id="s4">
+    <div class="main" style="padding:16px 20px;overflow-y:auto;gap:16px;">
+      <div>
+        <h2 style="font-size:18px;font-weight:700;">导出</h2>
+        <p style="font-size:12px;color:var(--text2);">导出 Word 文档送审 · 导出 JSON 交付开发</p>
+      </div>
+      <div style="display:flex;gap:14px;flex:1;">
+        <!-- Word -->
+        <div class="card" style="flex:1;">
+          <div style="text-align:center;padding:12px 0;">
+            <div style="font-size:40px;margin-bottom:8px;">📄</div>
+            <h3>Word 文档导出</h3>
+            <p style="font-size:11px;color:var(--text2);margin-bottom:12px;">左 UI 截图 + 右文案表格 · 按页面层级组织章节</p>
+            <div style="text-align:left;background:#f9fafb;border-radius:8px;padding:12px;margin-bottom:12px;">
+              <div style="font-size:10px;font-weight:600;margin-bottom:6px;">导出范围</div>
+              <label style="font-size:11px;display:block;margin-bottom:3px;"><input type="radio" name="scope" checked> 全部页面（4 个 Flow, 12 页）</label>
+              <label style="font-size:11px;display:block;margin-bottom:3px;"><input type="radio" name="scope"> 指定 Flow</label>
+              <label style="font-size:11px;display:block;"><input type="radio" name="scope"> 指定页面</label>
+              <div style="font-size:10px;font-weight:600;margin:8px 0 6px;">语言</div>
+              <label style="font-size:11px;display:block;margin-bottom:3px;"><input type="checkbox" checked> 中文 (简体)</label>
+              <label style="font-size:11px;display:block;margin-bottom:3px;"><input type="checkbox" checked> English</label>
+              <label style="font-size:11px;display:block;"><input type="checkbox" checked> 日本語</label>
+              <div style="font-size:10px;font-weight:600;margin:8px 0 6px;">排版预览</div>
+              <div style="background:#fff;border:1px solid var(--border);border-radius:4px;padding:8px;display:flex;gap:8px;font-size:9px;">
+                <div style="width:90px;height:60px;background:#e5e7eb;border-radius:2px;display:flex;align-items:center;justify-content:center;color:var(--text3);flex-shrink:0;">UI 截图</div>
+                <table style="font-size:8px;"><tr><th>Key</th><th>中文</th><th>EN</th></tr><tr><td>...Title</td><td>确认订单</td><td>Confirm...</td></tr><tr><td>...Subtitle</td><td>请确认...</td><td>Please...</td></tr></table>
+              </div>
+            </div>
+            <button class="btn primary" style="width:100%;">📥 导出 Word (.docx)</button>
+          </div>
+        </div>
+
+        <!-- JSON -->
+        <div class="card" style="flex:1;">
+          <div style="text-align:center;padding:12px 0;">
+            <div style="font-size:40px;margin-bottom:8px;">📦</div>
+            <h3>JSON 导出（交付开发）</h3>
+            <p style="font-size:11px;color:var(--text2);margin-bottom:12px;">标准 Schema · 支持 Key 引用 · 直接导入项目</p>
+            <div style="text-align:left;background:#1e1e24;border-radius:8px;padding:12px;margin-bottom:12px;font-family:'SF Mono','Cascadia Code','Menlo',monospace;font-size:9px;color:#e5e7eb;max-height:180px;overflow-y:auto;line-height:1.6;">
+{<br>
+&nbsp;&nbsp;<span style="color:#60a5fa;">"project"</span>: <span style="color:#fbbf24;">"VisitorMode"</span>,<br>
+&nbsp;&nbsp;<span style="color:#60a5fa;">"version"</span>: <span style="color:#fbbf24;">"1.0"</span>,<br>
+&nbsp;&nbsp;<span style="color:#60a5fa;">"locales"</span>: [<span style="color:#fbbf24;">"zh-CN"</span>, <span style="color:#fbbf24;">"en-US"</span>, <span style="color:#fbbf24;">"ja-JP"</span>],<br>
+&nbsp;&nbsp;<span style="color:#60a5fa;">"pages"</span>: [{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#60a5fa;">"flow"</span>: <span style="color:#fbbf24;">"SubmitOrder"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#60a5fa;">"page"</span>: <span style="color:#fbbf24;">"Checkout"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#60a5fa;">"fields"</span>: [{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#60a5fa;">"key"</span>: <span style="color:#fbbf24;">"...FooterBar.Confirmation"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#60a5fa;">"type"</span>: <span style="color:#fbbf24;">"Button"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#60a5fa;">"zh-CN"</span>: <span style="color:#fbbf24;">"确认下单"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#60a5fa;">"en-US"</span>: <span style="color:#fbbf24;">"Place Order"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#60a5fa;">"ja-JP"</span>: <span style="color:#fbbf24;">"注文を確定する"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;}]<br>
+&nbsp;&nbsp;}]<br>
+}
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn primary" style="flex:1;">📥 导出 JSON</button>
+              <button class="btn" style="flex:1;">📥 Excel (兜底)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">✅ 已保存</div>
+
+  <!-- Modal: New Project -->
+  <div class="modal-overlay" id="newProjectModal">
+    <div class="modal">
+      <h3>新建项目</h3>
+      <div class="form-group"><label>项目名称</label><input placeholder="e.g. Mobile Order · Visitor Mode"></div>
+      <div class="form-group"><label>项目 ID (Key 前缀)</label><input placeholder="e.g. VisitorMode"></div>
+      <div class="form-group"><label>描述</label><textarea rows="2" placeholder="项目简介..."></textarea></div>
+      <div class="form-group"><label>语言</label>
+        <div style="display:flex;gap:12px;font-size:12px;">
+          <label><input type="checkbox" checked> 中文 (简体)</label>
+          <label><input type="checkbox" checked> English</label>
+          <label><input type="checkbox" checked> 日本語</label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="hideModal('newProjectModal')">取消</button>
+        <button class="btn primary" onclick="hideModal('newProjectModal')">创建项目</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('#screenTabs button').forEach(b => {
+      b.classList.remove('active');
+      if (b.dataset.screen === id) b.classList.add('active');
+    });
+  }
+
+  document.querySelectorAll('#screenTabs button').forEach(btn => {
+    btn.addEventListener('click', () => switchScreen(btn.dataset.screen));
+  });
+
+  function showModal(id) { document.getElementById(id).classList.add('show'); }
+  function hideModal(id) { document.getElementById(id).classList.remove('show'); }
+
+  document.querySelectorAll('.sidebar .nav-item').forEach(item => {
+    item.addEventListener('click', function() {
+      this.parentElement.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // Tree node selection in workspace
+  document.querySelectorAll('#s2 .tree-node').forEach(node => {
+    node.addEventListener('click', function(e) {
+      e.stopPropagation();
+      document.querySelectorAll('#s2 .tree-node').forEach(n => n.classList.remove('selected'));
+      this.classList.add('selected');
+    });
+  });
+
+  // Project cards click -> workspace
+  document.querySelectorAll('.project-card').forEach(card => {
+    card.addEventListener('click', function(e) {
+      if (e.target.closest('button')) return;
+      switchScreen('s2');
+    });
+  });
+</script>
+
+</body>
+</html>

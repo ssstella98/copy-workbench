@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Producer Copy Workbench</title>
+<style>
+  :root {
+    --bg: #f3f4f6; --surface: #fff; --border: #e0e2e6;
+    --text: #1a1c1e; --text2: #6b7280; --text3: #9ca3af;
+    --blue: #2563eb; --blue-bg: #eff6ff; --blue-border: #bfdbfe;
+    --green: #16a34a; --green-bg: #f0fdf4;
+    --amber: #d97706; --amber-bg: #fffbeb;
+    --red: #dc2626; --red-bg: #fef2f2;
+    --purple: #7c3aed; --purple-bg: #f5f3ff;
+    --radius: 8px; --radius-sm: 5px;
+    --shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #e8eaed; min-height: 100vh; padding: 20px;
+    display: flex; justify-content: center; align-items: flex-start;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { width: 100%; max-width: 1520px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Header */
+  .header {
+    background: #1e1e24; color: #fff; border-radius: var(--radius);
+    padding: 14px 22px; display: flex; align-items: center; gap: 14px;
+  }
+  .header h1 { font-size: 16px; font-weight: 700; }
+  .header .back { color: rgba(255,255,255,.6); cursor: pointer; font-size: 12px; }
+  .header .back:hover { color: #fff; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 7px 14px; border-radius: var(--radius-sm);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: #fff;
+    color: var(--text); font-family: inherit; transition: .15s; white-space: nowrap;
+  }
+  .btn:hover { background: #f9fafb; }
+  .btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .btn.primary:hover { opacity: .9; }
+  .btn.danger { color: var(--red); border-color: #fecaca; }
+  .btn.sm { padding: 4px 10px; font-size: 11px; }
+
+  /* Toolbar */
+  .toolbar {
+    background: var(--surface); border-radius: var(--radius); padding: 10px 16px;
+    display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow); flex-wrap: wrap;
+  }
+  .toolbar input {
+    padding: 6px 10px; font-size: 12px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit;
+  }
+  .toolbar input:focus { outline: none; border-color: var(--blue); }
+  .toolbar label { font-size: 11px; font-weight: 600; color: var(--text2); white-space: nowrap; }
+  .status { font-size: 11px; color: var(--text2); display: flex; align-items: center; gap: 5px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status-dot.ok { background: var(--green); }
+  .status-dot.err { background: var(--red); }
+  .status-dot.loading { background: var(--amber); animation: pulse .8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* Tags */
+  .tag { display: inline-block; font-size: 9px; font-weight: 500; padding: 2px 7px; border-radius: 8px; }
+  .tag.blue { background: var(--blue-bg); color: var(--blue); }
+  .tag.green { background: var(--green-bg); color: var(--green); }
+  .tag.amber { background: var(--amber-bg); color: var(--amber); }
+  .tag.red { background: var(--red-bg); color: var(--red); }
+
+  /* ====== PROJECT LIST ====== */
+  .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .project-card {
+    background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 20px; cursor: pointer; border: 1.5px solid transparent; transition: .15s;
+  }
+  .project-card:hover { border-color: var(--blue-border); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .project-card h4 { font-size: 14px; margin-bottom: 4px; }
+  .project-card .meta { font-size: 11px; color: var(--text2); margin-bottom: 8px; }
+  .project-card .actions-row { display: flex; gap: 6px; margin-top: 8px; }
+  .project-card .actions-row button { font-size: 10px; padding: 3px 8px; }
+
+  /* ====== WORKSPACE LAYOUT ====== */
+  .ws-layout { display: flex; gap: 12px; flex: 1; align-items: flex-start; }
+  .sidebar-canvas {
+    width: 220px; flex-shrink: 0; background: var(--surface); border-radius: var(--radius);
+    box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: calc(100vh - 180px);
+    position: sticky; top: 20px; transition: width .15s;
+  }
+  .sidebar-canvas.collapsed { width: 36px; }
+  .sidebar-canvas .sb-header {
+    padding: 10px 12px; font-size: 11px; font-weight: 700; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sidebar-canvas .sb-header .toggle-btn { cursor: pointer; font-size: 14px; color: var(--text3); }
+  .sidebar-canvas .sb-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .sidebar-canvas .sb-footer { padding: 10px; border-top: 1px solid var(--border); }
+  .sidebar-canvas.collapsed .sb-body,
+  .sidebar-canvas.collapsed .sb-footer { display: none; }
+
+  .canvas-group { margin-bottom: 2px; }
+  .canvas-group .cg-header {
+    padding: 6px 10px; font-size: 10px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .5px; cursor: pointer; display: flex; align-items: center; gap: 4px;
+  }
+  .canvas-group .frame-item {
+    padding: 5px 10px 5px 24px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;
+    color: var(--text2); transition: .1s;
+  }
+  .canvas-group .frame-item:hover { background: #f3f4f6; }
+  .canvas-group .frame-item.active { background: var(--blue-bg); color: var(--blue); font-weight: 600; }
+
+  /* Panel: preview + key table */
+  .panel-preview {
+    width: 380px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;
+    position: sticky; top: 20px; max-height: calc(100vh - 140px);
+  }
+  .preview-card {
+    background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+    display: flex; flex-direction: column; overflow: hidden; flex: 1;
+  }
+  .preview-card .preview-header {
+    padding: 8px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--border);
+  }
+  .preview-card .preview-body {
+    overflow-y: auto; background: #fafbfc; position: relative;
+    display: flex; align-items: flex-start; justify-content: center;
+    flex: 1; max-height: calc(100vh - 240px);
+  }
+  .preview-body img { width: 100%; display: block; border-radius: 2px; flex-shrink: 0; }
+
+  .highlight-overlay {
+    position: absolute; border: 1.5px dashed var(--blue);
+    background: rgba(37,99,235,.04); border-radius: 2px;
+    pointer-events: none; transition: all .12s; z-index: 2;
+  }
+  .highlight-overlay .hl-num {
+    position: absolute; top: -10px; left: -2px;
+    background: var(--blue); color: #fff; font-size: 9px; font-weight: 700;
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: scale(.5); transition: all .12s;
+  }
+  .highlight-overlay.active { border-color: var(--red); border-width: 2px; background: rgba(220,38,38,.08); }
+  .highlight-overlay.active .hl-num { opacity: 1; transform: scale(1); background: var(--red); }
+
+  .page-nav {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border-radius: var(--radius); padding: 8px 12px; box-shadow: var(--shadow);
+  }
+  .page-nav .page-name { font-size: 12px; font-weight: 600; flex: 1; text-align: center; }
+  .page-nav .page-count { font-size: 10px; color: var(--text2); }
+
+  .panel-keys { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .keys-card {
+    background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+    display: flex; flex-direction: column; overflow: hidden; flex: 1;
+  }
+  .keys-card .keys-header {
+    padding: 8px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .keys-table-wrap { overflow-y: auto; flex: 1; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th {
+    text-align: left; padding: 7px 8px; font-weight: 600; font-size: 10px;
+    color: var(--text2); border-bottom: 1px solid var(--border); background: #fafbfc;
+    position: sticky; top: 0; z-index: 2;
+  }
+  td { padding: 6px 8px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  tr:hover td { background: #fafbfc; }
+  tr.row-hover td { background: #fff7ed !important; }
+  tr.row-hidden td { background: #f9fafb; color: var(--text3); opacity: .5; }
+  tr.row-hidden td .td-figma { text-decoration: line-through; }
+
+  .td-key { font-family: 'SF Mono', 'Cascadia Code', 'Menlo', monospace; font-size: 10px; color: var(--purple); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .td-figma { font-size: 12px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  td input[type="text"], td select {
+    font-family: inherit; font-size: 11px; padding: 4px 6px;
+    border: 1px solid var(--border); border-radius: 3px; background: #fff; width: 100%;
+  }
+  td input:focus, td select:focus { outline: none; border-color: var(--blue); }
+
+  .filter-bar { display: flex; gap: 6px; align-items: center; }
+  .filter-bar label { font-size: 10px; color: var(--text2); display: flex; align-items: center; gap: 3px; cursor: pointer; }
+
+  .hide-btn { cursor: pointer; font-size: 14px; color: var(--text3); padding: 2px 4px; border: none; background: none; }
+  .hide-btn:hover { color: var(--red); }
+
+  /* Picker panel */
+  .picker-panel {
+    background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 14px 18px; margin-bottom: 4px;
+  }
+  .fp-item {
+    padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer;
+    display: flex; align-items: center; gap: 10px; transition: background .1s;
+  }
+  .fp-item:hover { background: var(--blue-bg); }
+  .fp-item .fp-name { font-size: 12px; }
+  .fp-item .fp-count { font-size: 10px; color: var(--text3); background: #f3f4f6; padding: 2px 7px; border-radius: 8px; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.35);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 12px; padding: 22px; width: 440px; max-width: 90%;
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  }
+  .modal h3 { font-size: 15px; margin-bottom: 14px; }
+  .modal .form-group { margin-bottom: 12px; }
+  .modal .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 3px; }
+  .modal .form-group input, .modal .form-group select {
+    width: 100%; padding: 7px 10px; font-size: 13px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-family: inherit;
+  }
+  .modal .form-group input:focus { outline: none; border-color: var(--blue); }
+  .modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #1e1e24; color: #fff; padding: 10px 20px;
+    border-radius: var(--radius-sm); font-size: 12px; font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,.2); z-index: 200;
+    opacity: 0; transform: translateY(10px); transition: .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--text3); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+  .empty-state p { font-size: 13px; margin-bottom: 14px; }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app" id="appRoot"></div>
+<div class="toast" id="toast"></div>
+
+<!-- Create Project Modal -->
+<div class="modal-overlay" id="projectModal">
+  <div class="modal">
+    <h3 id="projectModalTitle">新建项目</h3>
+    <div class="form-group"><label>项目名称</label><input id="projName" placeholder="e.g. HMH Hotel Magic Hub"></div>
+    <div class="form-group"><label>Domain（Key 中的项目前缀）</label><input id="projDomain" placeholder="e.g. HMH"></div>
+    <div class="form-group">
+      <label>Figma URL（可选，可后续添加）</label>
+      <input id="projFigmaUrl" placeholder="https://www.figma.com/design/...">
+    </div>
+    <div class="form-group">
+      <label>Figma Token（可选）</label>
+      <input type="password" id="projToken" placeholder="figd_...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="hideModal('projectModal')">取消</button>
+      <button class="btn primary" id="projSaveBtn" onclick="saveProject()">创建项目</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// PERSISTENCE: localStorage (project list) + IndexedDB (data)
+// ============================================================
+const LS_KEY = 'cw_projects';
+const DB_NAME = 'CopyWorkbench';
+const DB_VERSION = 1;
+
+function loadProjects() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function saveProjects(list) {
+  localStorage.setItem(LS_KEY, JSON.stringify(list));
+}
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('figmaData')) db.createObjectStore('figmaData', { keyPath: 'projectId' });
+      if (!db.objectStoreNames.contains('projectKeys')) db.createObjectStore('projectKeys', { keyPath: 'projectId' });
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function dbPut(storeName, data) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).put(data);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function dbGet(storeName, id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readonly');
+    const req = tx.objectStore(storeName).get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function dbDelete(storeName, id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// ============================================================
+// RULES (loaded from key-rules-config.json)
+// ============================================================
+let TITLE_MAP = {};
+let MODULE_KEYWORDS = {};
+let MODULE_ENUMS = [];
+let RULES_READY = false;
+
+async function loadRules() {
+  const paths = ['./Key Rules/key-rules-config.json', './Key%20Rules/key-rules-config.json', 'Key Rules/key-rules-config.json'];
+  for (const path of paths) {
+    try {
+      const resp = await fetch(path);
+      if (resp.ok) {
+        const cfg = await resp.json();
+        TITLE_MAP = cfg.title.translationMap || {};
+        MODULE_KEYWORDS = cfg.module.detectionKeywords || {};
+        MODULE_ENUMS = Object.values(cfg.module.enums).flatMap(c => c.values);
+        RULES_READY = true;
+        console.log('[Rules] ✓ Loaded from', path, '—', Object.keys(TITLE_MAP).length, 'title entries,', MODULE_ENUMS.length, 'modules');
+        return;
+      }
+    } catch(e) {}
+  }
+  console.warn('[Rules] ✗ JSON not found, using built-in fallback (TITLE_MAP has', Object.keys(FALLBACK_TITLE_MAP).length, 'entries)');
+
+  TITLE_MAP = FALLBACK_TITLE_MAP;
+  MODULE_KEYWORDS = FALLBACK_MODULE_KEYWORDS;
+  MODULE_ENUMS = ['Modal','Sheet','PoPup','NavigationBar','Toast','ActionBar','Switch','RadioButton','Checkbox','TextField','Dropdown','Capsule','Calendar','Icon','Button','Hyperlink','Placeholder','Label','Title','Subtitle','Notes','Tooltip','Banner','ToDoList','KeyEntrance','Upsell','Activity','Facility','TopTips'];
+  RULES_READY = true;
+}
+
+// Built-in fallback with many short building-block words for decomposition
+const FALLBACK_TITLE_MAP = {
+  // Single chars
+  '票':'Ticket','券':'Coupon',
+  // 2-char building blocks (critical for decomposition)
+  '确认':'Confirm','订单':'Order','信息':'Info','酒店':'Hotel','服务':'Service',
+  '乐园':'Park','购买':'Buy','入住':'CheckIn','退房':'CheckOut','日期':'Date',
+  '行李':'Luggage','门票':'Ticket','儿童':'Child','成人':'Adult','客房':'Room',
+  '价格':'Price','政策':'Policy','说明':'Desc','须知':'Notice','选择':'Select',
+  '查看':'View','添加':'Add','取消':'Cancel','优惠':'Coupon','支付':'Pay',
+  '方式':'Method','推荐':'Reco','使用':'Use','产品':'Product','标准':'Standard',
+  '国际':'Intl','银联':'UnionPay','发送':'Send','阅读':'Read','同意':'Agree',
+  '条款':'Terms','细则':'Details','退款':'Refund','预订':'Book','立即':'Now',
+  '提交':'Submit','半日':'HalfDay','前台':'FrontDesk','配送':'Delivery',
+  '门口':'Gate','游玩':'Play','攻略':'Guide','扫描':'Scan','花园':'Garden',
+  '景观':'View','行程':'Schedule','匹配':'Match','登记':'Register',
+  '首页':'Home','我的':'Profile','客服':'Support','反馈':'Feedback',
+  '横幅':'Banner','活动':'Activity','设施':'Facility','交通':'Transport',
+  '短信':'SMS','通知':'Notify','消息':'Message','设置':'Settings','帮助':'Help',
+  '关于':'About','退出':'Logout','登录':'Login','注册':'SignUp','完成':'Done',
+  '继续':'Continue','返回':'Back','保存':'Save','删除':'Delete','编辑':'Edit',
+  '分享':'Share','收藏':'Fav','评价':'Review','搜索':'Search','筛选':'Filter',
+  '详情':'Details','更多':'More','加载':'Loading','美食':'FNB','餐饮':'FNB',
+  '关闭':'Close','房型':'RoomType',
+  // 3-4 char phrases
+  '确认下单':'Confirmation','确认订单':'OrderConfirm','提交订单':'SubmitOrder',
+  '确认支付':'ConfirmPay','立即预订':'BookNow','去支付':'GoPay',
+  '微信支付':'WeChatPay','支付宝':'Alipay','云闪付':'CloudPay',
+  '房间号':'RoomNum','订单号':'OrderNum','订单确认':'OrderConfirm',
+  '总计':'TotalPrice','合计':'Total','覆盖层':'Overlay','弹窗':'Popup',
+  '验证码':'VerificationCode','忘记密码':'ForgotPwd',
+  '下一步':'Next','上一步':'Previous','个人中心':'Profile',
+  '网络异常':'NetErr','请重试':'Retry','空状态':'EmptyState','无数据':'NoData',
+  '行李寄存':'LuggageStorage','乐园半日票':'HalfDayTicket','酒店商城':'HotelShop',
+  '乐园门票':'ParkTicket','常见问题':'FAQ','查看全部':'ViewAll','查看更多':'ViewMore',
+  '开始预登记':'PreCheckIn','匹配乐园门票':'MatchTicket',
+  '查看酒店行程':'ViewSchedule','客房送物':'RoomService',
+  '收起订单细节':'CollapseDetails','购买须知':'BuyNotice',
+  '取消政策':'CancelPolicy','重要须知':'ImportantNotice','价格明细':'PriceDetail',
+  '订单确认信息':'OrderConfirmInfo','行前须知':'PreTripNotice',
+  '推荐使用':'Recommended','国际银联卡':'IntlUnionPayCard','银联卡':'UnionPayCard',
+  '确认并提交':'ConfirmSubmit','产品说明':'ProductDesc',
+  '标准票':'StandardTicket','儿童票':'ChildTicket',
+  '发送验证码':'SendCode','电子邮件':'Email',
+  '查看门票':'ViewTicket','查看订单详情':'ViewOrderDetails',
+  '下单成功':'OrderSuccess',
+};
+
+const FALLBACK_MODULE_KEYWORDS = {
+  Modal:['确认','取消','关闭','确定'],
+  ActionBar:['去支付','提交订单','立即预订','确认支付','购买'],
+  Button:['支付','下单','预订','提交','BookNow','PlaceOrder'],
+  NavigationBar:['门票','餐饮','房间','交通','设施','活动','商城','权益','我的','首页'],
+  KeyEntrance:['去支付','确认支付','预订'],
+  Banner:['欢迎','特选','享受','体验','轻松购买'],
+  TopTips:['须知','提示','注意','公告','提醒'],
+  ToDoList:['登记','匹配','预约','管理行程'],
+  Facility:['行李寄存','行李','健身房','泳池','餐厅','SPA','接送','巴士'],
+  Activity:['活动','演出','巡游','烟花','庆典'],
+  Upsell:['推荐','云闪付','银联','优惠','折扣','立减','精选','热门'],
+  Hyperlink:['了解更多','查看详情','查看更多','查看全部'],
+  Placeholder:['请输入','请选择','输入'],
+  Label:['：',':'],
+  Notes:['政策','条款','细则','遵守','包括','每间'],
+  Toast:['成功','失败','已'],
+  Subtitle:['副标题','解释'],
+};
+
+// ============================================================
+// KEY GENERATION HELPERS
+// ============================================================
+const PROJECT_PREFIXES = ['HMH','PFC','Refund','hmh','pfc','refund'];
+
+function mapFrameToPage(frameName) {
+  const raw = (frameName || '').trim();
+  if (!raw) return '';
+  let cleaned = raw;
+  for (const pfx of PROJECT_PREFIXES) {
+    cleaned = cleaned.replace(new RegExp(`^${pfx}\\s+`, 'i'), '');
+  }
+  const hasChinese = /[一-鿿]/.test(cleaned);
+  if (hasChinese) {
+    const translated = suggestTitle(cleaned);
+    return translated || toCamelCase(cleaned, 3);
+  }
+  return toCamelCase(cleaned, 3);
+}
+
+function toCamelCase(str, maxWords) {
+  const words = str.split(/[\s\-_\/]+/).filter(w => w.length > 0);
+  const capped = words.slice(0, maxWords).map((w) => {
+    if (/^[A-Z][a-z]+$/.test(w) || /^[A-Z]+$/.test(w)) return w;
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  });
+  return capped.join('');
+}
+
+function detectModule(text, relY) {
+  const t = (text || '').trim();
+  const kwMap = Object.keys(MODULE_KEYWORDS).length > 0 ? MODULE_KEYWORDS : {};
+  for (const [mod, keywords] of Object.entries(kwMap)) {
+    if (keywords.some(k => t.includes(k))) return mod;
+  }
+  const isBottom = relY > 0.85, isTop = relY < 0.12;
+  if (isBottom && t.length <= 6) return 'NavigationBar';
+  if (isBottom) return 'ActionBar';
+  if (isTop && t.length > 20) return 'Banner';
+  if (isTop && t.length <= 12) return 'TopTips';
+  if (t.length > 40) return 'Notes';
+  return '';
+}
+
+function suggestTitle(text) {
+  const clean = (text || '').trim();
+  if (!clean) return '';
+  if (TITLE_MAP[clean]) return TITLE_MAP[clean];
+  let bestMatch = null;
+  for (const [cn, en] of Object.entries(TITLE_MAP)) {
+    if (clean.includes(cn) && (!bestMatch || cn.length > bestMatch.cnLen)) {
+      bestMatch = { en, cnLen: cn.length };
+    }
+  }
+  if (bestMatch) return bestMatch.en;
+  // Word-by-word decomposition
+  const words = Object.keys(TITLE_MAP).filter(k => k.length >= 1).sort((a,b) => b.length - a.length);
+  let remaining = clean, parts = [];
+  while (remaining.length > 0) {
+    let matched = null;
+    for (const w of words) { if (remaining.startsWith(w)) { matched = w; break; } }
+    if (matched) { parts.push(TITLE_MAP[matched]); remaining = remaining.slice(matched.length); }
+    else { remaining = remaining.slice(1); }
+  }
+  return parts.slice(0, 3).join('');
+}
+
+function isDynamicData(text) {
+  const t = text.trim();
+  if (!t) return true;
+  const stripped = t.replace(/[¥￥$\-+×xX,.，。、\s\/\\%℃*#^~|]/g, '');
+  if (/^\d+$/.test(stripped) && stripped.length > 0) return true;
+  if (/^\d{4}[年\/\-]\d{1,2}[月\/\-]\d{1,2}日?$/.test(t)) return true;
+  if (/^\d{1,2}:\d{2}$/.test(t)) return true;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) return true;
+  if (/^[¥￥$!！?？.。,+×xX%℃\s\-/\\*#^~|@&]$/.test(t)) return true;
+  if (/^[a-zA-Z]$/.test(t)) return true;
+  if (/^\+?\d{7,}$/.test(t)) return true;
+  return false;
+}
+
+function isSkippableFrame(name) {
+  const n = (name || '').toLowerCase();
+  return ['iphone','android','device','mockup','封面','cover','legend','组件'].some(w => n.includes(w));
+}
+
+function buildKey(f, domain) {
+  const parts = [domain, f.page, f.module, f.title];
+  const filtered = parts.filter(p => p && p.trim());
+  if (f.body && f.body.trim()) filtered.push(f.body.trim());
+  return filtered.join('.');
+}
+
+function esc(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ============================================================
+// AI TRANSLATION (DeepSeek API, OpenAI-compatible)
+// ============================================================
+async function batchAITranslate() {
+  const apiKey = document.getElementById('aiApiKey')?.value?.trim();
+  if (!apiKey) { showToast('请在工具栏填写 DeepSeek API Key'); return; }
+
+  // Collect fields with empty title
+  const toTranslate = [];
+  for (const frame of WS.frames) {
+    for (const field of frame.fields) {
+      if ((!field.title || !field.title.trim()) && field.text && field.text.trim()) {
+        toTranslate.push(field);
+      }
+    }
+  }
+
+  if (toTranslate.length === 0) { showToast('所有 Title 已填写'); return; }
+
+  WS.status = `AI 翻译中 · ${toTranslate.length} 条...`;
+  WS.statusType = 'loading';
+  renderToolbar();
+
+  let done = 0;
+  const BATCH = 20;
+
+  for (let i = 0; i < toTranslate.length; i += BATCH) {
+    const batch = toTranslate.slice(i, i + BATCH);
+    const inputs = batch.map(f => f.text);
+
+    try {
+      const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          max_tokens: 300,
+          temperature: 0.1,
+          messages: [{
+            role: 'user',
+            content: `You are a UI copy translator. Translate each Chinese UI string below to an English CamelCase title (max 3 words). Return ONLY a JSON array of strings, same order. No explanation. If a string is not meaningful UI copy (pure numbers, single symbols), return "".
+
+Examples:
+"确认下单" → "Confirmation"
+"请确认您的订单信息" → "OrderConfirm"
+"行李寄存服务：酒店前台提供行李寄存" → "LuggageStorage"
+"每间客房最多可入住2位成人及2位11周岁以下儿童" → "MaxGuestPerRoom"
+"9:41" → ""
+"¥458" → ""
+
+Input: ${JSON.stringify(inputs)}`
+          }]
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(`API ${resp.status}: ${err.slice(0, 200)}`);
+      }
+
+      const data = await resp.json();
+      const content = data.choices?.[0]?.message?.content || '';
+      // Extract JSON array from response
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('No JSON array in response');
+
+      const translations = JSON.parse(jsonMatch[0]);
+      for (let j = 0; j < batch.length && j < translations.length; j++) {
+        const t = (translations[j] || '').trim();
+        if (t && t.length > 0) {
+          const clean = t.replace(/[^a-zA-Z0-9]/g, '');
+          const camel = clean.charAt(0).toUpperCase() + clean.slice(1);
+          batch[j].title = camel.slice(0, 30);
+        }
+      }
+
+      done += batch.length;
+      WS.status = `AI 翻译中 · ${done}/${toTranslate.length}`;
+      renderToolbar();
+      renderKeyTable();
+
+    } catch (err) {
+      console.error('[AI] Batch failed:', err);
+      WS.status = `翻译出错: ${err.message}`;
+      WS.statusType = 'err';
+      renderToolbar();
+      renderKeyTable();
+      showToast('AI 翻译出错: ' + err.message);
+      return;
+    }
+  }
+
+  WS.status = `AI 翻译完成 · ${toTranslate.length} 条`;
+  WS.statusType = 'ok';
+  renderToolbar();
+  renderKeyTable();
+  showToast(`已翻译 ${toTranslate.length} 条 Title`);
+}
+
+// ============================================================
+// FIGMA API
+// ============================================================
+function parseFileKey(url) {
+  const match = url.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
+  return match ? match[1] : null;
+}
+
+async function fetchFigmaFile(fileKey, token) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt > 0) {
+      const waitMs = Math.pow(3, attempt) * 2000;
+      WS.status = `Figma 限流 · ${Math.round(waitMs/1000)}s 后重试 (${attempt}/5)...`;
+      renderToolbar();
+      await new Promise(r => setTimeout(r, waitMs));
+    }
+    try {
+      const resp = await fetch(`https://api.figma.com/v1/files/${fileKey}`, {
+        headers: { 'X-FIGMA-TOKEN': token }
+      });
+      if (resp.status === 429) continue;
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.json();
+    } catch(err) {
+      if (err.message === 'Rate limit exceeded') continue;
+      throw err;
+    }
+  }
+  throw new Error('Rate limit exceeded');
+}
+
+function scanFigmaFrames(data) {
+  const document = data.document;
+  const allFrameMetas = [];
+  const nameCounts = {};
+
+  const canvases = document.children || [];
+  for (const canvas of canvases) {
+    if (canvas.type !== 'CANVAS') continue;
+    for (const topNode of (canvas.children || [])) {
+      if (!['FRAME','COMPONENT','INSTANCE'].includes(topNode.type)) continue;
+      if (isSkippableFrame(topNode.name)) continue;
+      const frameBox = topNode.absoluteBoundingBox || { x:0, y:0, width:375, height:812 };
+      function countTexts(node) {
+        let n = 0;
+        if (!node || !node.children) return 0;
+        for (const child of node.children) {
+          if (child.type === 'TEXT' && child.characters && child.characters.trim()) n++;
+          if (child.children && child.children.length > 0) n += countTexts(child);
+        }
+        return n;
+      }
+      const textCount = countTexts(topNode);
+      if (textCount <= 2) continue;
+      nameCounts[topNode.name] = (nameCounts[topNode.name] || 0) + 1;
+      allFrameMetas.push({
+        id: topNode.id, name: topNode.name, canvasName: canvas.name,
+        frameBox: frameBox, textCount: textCount
+      });
+    }
+  }
+  // Disambiguate duplicates
+  const dupNames = {};
+  for (const m of allFrameMetas) dupNames[m.name] = (dupNames[m.name]||0)+1;
+  if (Object.values(dupNames).some(c => c>1)) {
+    const ctrs = {};
+    for (const m of allFrameMetas) {
+      if (dupNames[m.name] > 1) { ctrs[m.name] = (ctrs[m.name]||0)+1; m.name = `${m.name} (${ctrs[m.name]})`; }
+    }
+  }
+  allFrameMetas.sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+  return allFrameMetas;
+}
+
+function deepScanFrame(meta, rawData) {
+  const frameBox = (meta.frameBox && meta.frameBox.width > 0) ? meta.frameBox : { x:0, y:0, width:375, height:812 };
+  const fields = [];
+  let filtered = 0, found = false;
+
+  function findAndCollect(node) {
+    if (!node || node.id !== meta.id) {
+      if (node && node.children) {
+        for (const child of node.children) { if (findAndCollect(child)) return true; }
+      }
+      return false;
+    }
+    found = true;
+    function collectTexts(n) {
+      if (!n || !n.children) return;
+      for (const child of n.children) {
+        if (child.type === 'TEXT' && child.characters && child.characters.trim()) {
+          const raw = child.characters.trim();
+          if (isDynamicData(raw)) { filtered++; }
+          else {
+            const textBox = child.absoluteBoundingBox || { x:0, y:0, width:0, height:0 };
+            const relY = frameBox.height > 0 ? (textBox.y - frameBox.y) / frameBox.height : 0;
+            fields.push({
+              nodeId: child.id, text: raw,
+              page: mapFrameToPage(meta.name) || '',
+              module: detectModule(raw, relY),
+              title: suggestTitle(raw), body: '', hidden: false,
+              relX: frameBox.width > 0 ? (textBox.x - frameBox.x) / frameBox.width : 0,
+              relY: relY,
+              relW: frameBox.width > 0 ? textBox.width / frameBox.width : 0,
+              relH: frameBox.height > 0 ? textBox.height / frameBox.height : 0,
+            });
+          }
+        }
+        if (child.children && child.children.length > 0) collectTexts(child);
+      }
+    }
+    collectTexts(node);
+    return true;
+  }
+
+  const canvases = (rawData.document && rawData.document.children) || [];
+  for (const canvas of canvases) {
+    if (!canvas.children) continue;
+    for (const child of canvas.children) {
+      if (findAndCollect(child)) break;
+    }
+    if (found) break;
+  }
+  return { fields, filtered };
+}
+
+async function fetchFrameImages(fileKey, token, imageIds) {
+  const images = {};
+  const CHUNK = 20;
+  for (let i = 0; i < imageIds.length; i += CHUNK) {
+    const chunk = imageIds.slice(i, i + CHUNK);
+    if (i > 0) await new Promise(r => setTimeout(r, 1500));
+    try {
+      const resp = await fetch(`https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(chunk.join(','))}&scale=2&format=png`, {
+        headers: { 'X-FIGMA-TOKEN': token }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.images) Object.assign(images, data.images);
+      } else if (resp.status === 429) {
+        await new Promise(r => setTimeout(r, 10000));
+        const retry = await fetch(`https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(chunk.join(','))}&scale=2&format=png`, {
+          headers: { 'X-FIGMA-TOKEN': token }
+        });
+        if (retry.ok) { const d = await retry.json(); if (d.images) Object.assign(images, d.images); }
+      }
+    } catch(e) { console.warn('Image chunk failed:', e); }
+  }
+  return images;
+}
+
+// ============================================================
+// WORKSPACE STATE
+// ============================================================
+let WS = {
+  projectId: null,
+  domain: '',
+  figmaUrl: '',
+  token: '',
+  fileKey: '',
+  rawData: null,
+  frameImages: {},
+  frames: [],
+  allFrameMetas: [],
+  currentFrameIdx: 0,
+  status: '', statusType: '',
+  pickerOpen: false, sidebarCollapsed: false,
+  aiKey: '',
+};
+
+function wsReset() {
+  WS = { projectId: null, domain: '', figmaUrl: '', token: '', fileKey: '', rawData: null,
+    frameImages: {}, frames: [], allFrameMetas: [], currentFrameIdx: 0,
+    status: '', statusType: '', pickerOpen: false, sidebarCollapsed: false };
+}
+
+let EDITING_PROJECT_ID = null; // for edit modal
+
+// ============================================================
+// RENDER: ROOT
+// ============================================================
+function render() {
+  const root = document.getElementById('appRoot');
+  if (!WS.projectId) {
+    root.innerHTML = renderProjectList();
+  } else {
+    root.innerHTML = renderWorkspace();
+  }
+  if (WS.projectId) {
+    renderPreviewContent();
+    renderKeyTable();
+    updateSidebarTree();
+    updateNav();
+  }
+}
+
+// ============================================================
+// RENDER: PROJECT LIST
+// ============================================================
+function renderProjectList() {
+  const projects = loadProjects();
+  let html = `
+    <div class="header">
+      <h1>Producer Copy Workbench</h1>
+      <span style="flex:1;"></span>
+      <button class="btn primary" onclick="openProjectModal(null)">+ 新建项目</button>
+    </div>`;
+
+  if (projects.length === 0) {
+    html += `<div class="empty-state">
+      <div class="icon">📂</div><p>暂无项目</p>
+      <button class="btn primary" onclick="openProjectModal(null)">+ 创建第一个项目</button>
+    </div>`;
+  } else {
+    html += `<div class="project-grid">`;
+    for (const p of projects) {
+      const date = new Date(p.updatedAt).toLocaleDateString('zh-CN');
+      html += `
+        <div class="project-card" onclick="enterProject('${p.id}')">
+          <h4>${esc(p.name)}</h4>
+          <div class="meta">Domain: ${esc(p.domain)} · ${date}</div>
+          <div class="meta">${p.figmaUrl ? '🔗 已关联 Figma' : '📄 未关联 Figma'}</div>
+          <div class="actions-row">
+            <button class="btn sm" onclick="event.stopPropagation();openProjectModal('${p.id}')">✏️ 编辑</button>
+            <button class="btn sm danger" onclick="event.stopPropagation();deleteProject('${p.id}')">🗑 删除</button>
+          </div>
+        </div>`;
+    }
+    html += `</div>`;
+  }
+  return html;
+}
+
+// ============================================================
+// RENDER: WORKSPACE
+// ============================================================
+function renderWorkspace() {
+  const proj = loadProjects().find(p => p.id === WS.projectId);
+  const projName = proj ? proj.name : 'Unknown';
+  const hasData = WS.frames.length > 0;
+
+  let html = `
+    <div class="header">
+      <span class="back" onclick="backToProjects()">← 项目列表</span>
+      <h1>${esc(projName)}</h1>
+      <span style="font-size:11px;opacity:.5;">Domain: ${esc(WS.domain)}</span>
+      <span style="flex:1;"></span>
+      ${hasData ? `<button class="btn sm" onclick="saveCurrentProject()">💾 保存项目</button>` : ''}
+      <button class="btn sm" onclick="backToProjects()">🏠 回到列表</button>
+    </div>`;
+
+  // Toolbar
+  html += `<div class="toolbar" id="wsToolbar">`;
+  html += renderToolbarContent();
+  html += `</div>`;
+
+  // Frame picker (if open)
+  if (WS.pickerOpen) {
+    html += `<div class="picker-panel" id="pickerPanel">${renderPickerContent()}</div>`;
+  }
+
+  // Main layout
+  html += `<div class="ws-layout">`;
+
+  // Sidebar
+  html += `<div class="sidebar-canvas${WS.sidebarCollapsed ? ' collapsed' : ''}" id="sidebarCanvas">`;
+  html += `<div class="sb-header">
+    <span>📁 页面目录</span>
+    <span class="toggle-btn" onclick="toggleSidebar()">${WS.sidebarCollapsed ? '▶' : '◀'}</span>
+  </div>`;
+  html += `<div class="sb-body" id="sidebarBody">${renderSidebarContent()}</div>`;
+  html += `<div class="sb-footer">
+    <button class="btn sm" onclick="togglePicker()" style="width:100%;">📋 管理页面</button>
+  </div>`;
+  html += `</div>`;
+
+  // Preview panel
+  html += `<div class="panel-preview" id="panelPreview">
+    <div class="preview-card">
+      <div class="preview-header">📱 Figma 预览 <span id="previewFrameLabel" style="font-size:10px;color:var(--text2);"></span></div>
+      <div class="preview-body" id="previewBody">
+        ${!hasData ? '<div class="empty-state"><div class="icon">📤</div><p>加载 Figma 文件后预览</p></div>' : ''}
+      </div>
+    </div>
+    <div class="page-nav">
+      <button class="btn sm" id="btnPrev" onclick="navFrame(-1)" disabled style="display:none;">◀</button>
+      <span class="page-name" id="pageName">--</span>
+      <span class="page-count" id="pageCount"></span>
+      <button class="btn sm" id="btnNext" onclick="navFrame(1)" disabled style="display:none;">▶</button>
+    </div>
+  </div>`;
+
+  // Key table
+  html += `<div class="panel-keys">
+    <div class="keys-card">
+      <div class="keys-header">
+        <span>🔑 Key 列表 <span style="font-size:10px;color:var(--text2);" id="fieldCount"></span></span>
+        <div class="filter-bar">
+          <label><input type="checkbox" id="showHidden" onchange="renderKeyTable()"> 显示已隐藏</label>
+          <button class="btn sm" onclick="unhideAll()" style="font-size:10px;">取消隐藏</button>
+          <button class="btn sm danger" onclick="deleteHidden()" style="font-size:10px;">删除已隐藏</button>
+        </div>
+      </div>
+      <div class="keys-table-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:26px;">#</th><th style="width:30px;"></th>
+            <th style="width:130px;">Figma 草稿</th><th style="width:60px;">Domain</th>
+            <th style="width:90px;">Page</th><th style="width:100px;">Module</th>
+            <th style="width:100px;">Title</th><th style="width:60px;">Body</th>
+            <th>Full Key</th>
+          </tr></thead>
+          <tbody id="keyTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+
+  html += `</div>`; // ws-layout
+  return html;
+}
+
+function renderToolbarContent() {
+  let html = '';
+  if (!WS.rawData) {
+    html += `<label>🔗 Figma URL</label>
+      <input type="text" id="figmaUrl" value="${esc(WS.figmaUrl)}" placeholder="https://www.figma.com/design/..." style="flex:1;min-width:200px;">
+      <label>Token</label>
+      <input type="password" id="figmaToken" value="${esc(WS.token)}" placeholder="figd_..." style="width:180px;">
+      <button class="btn primary sm" onclick="loadFigmaForProject()">加载 Figma</button>`;
+  } else {
+    html += `<span style="font-size:11px;color:var(--text2);">🔗 ${esc(WS.figmaUrl.split('/').pop())}</span>`;
+    html += `<span style="font-size:11px;color:var(--green);">● 已加载 · ${WS.frames.length} 个 Frame</span>`;
+    html += `<button class="btn sm" onclick="syncFigma()">🔄 同步 Figma</button>`;
+  }
+  html += `<button class="btn sm" onclick="exportJSON()" ${WS.frames.length === 0 ? 'disabled' : ''}>📥 JSON</button>`;
+  html += `<button class="btn sm" onclick="exportCSV()" ${WS.frames.length === 0 ? 'disabled' : ''}>📥 CSV</button>`;
+  html += `<span style="font-size:11px;color:var(--text3);">|</span>`;
+  html += `<input type="password" id="aiApiKey" placeholder="DeepSeek API Key" style="width:160px;font-size:11px;" value="${esc(WS.aiKey || '')}">`;
+  html += `<button class="btn sm primary" onclick="batchAITranslate()" ${WS.frames.length === 0 ? 'disabled' : ''}>🤖 AI 翻译</button>`;
+  html += `<span class="status"><span class="status-dot ${WS.statusType}"></span> ${WS.status || ''}</span>`;
+  return html;
+}
+
+// ============================================================
+// RENDER: SIDEBAR TREE
+// ============================================================
+function renderSidebarContent() {
+  if (WS.frames.length === 0) return '<div style="padding:16px;font-size:11px;color:var(--text3);">暂无页面</div>';
+  const groups = {};
+  for (let i = 0; i < WS.frames.length; i++) {
+    const f = WS.frames[i];
+    const c = f.canvasName || 'Unnamed';
+    if (!groups[c]) groups[c] = [];
+    groups[c].push({ ...f, idx: i });
+  }
+  let html = '';
+  for (const [canvas, frames] of Object.entries(groups)) {
+    html += `<div class="canvas-group">
+      <div class="cg-header" onclick="toggleCanvasGroup(this)">▼ 📁 ${esc(canvas)}</div>`;
+    for (const f of frames) {
+      const active = f.idx === WS.currentFrameIdx ? ' active' : '';
+      html += `<div class="frame-item${active}" onclick="selectFrame(${f.idx})">🖼 ${esc(f.name)}</div>`;
+    }
+    html += `</div>`;
+  }
+  return html;
+}
+
+function updateSidebarTree() {
+  const body = document.getElementById('sidebarBody');
+  if (body) body.innerHTML = renderSidebarContent();
+}
+
+function toggleCanvasGroup(header) {
+  const items = header.parentElement.querySelectorAll('.frame-item');
+  const collapsed = items.length > 0 && items[0].style.display === 'none';
+  items.forEach(el => { el.style.display = collapsed ? '' : 'none'; });
+  header.textContent = (collapsed ? '▼' : '▶') + header.textContent.slice(2);
+}
+
+function selectFrame(idx) {
+  WS.currentFrameIdx = idx;
+  renderPreviewContent();
+  renderKeyTable();
+  updateNav();
+  updateSidebarTree();
+}
+
+function toggleSidebar() {
+  WS.sidebarCollapsed = !WS.sidebarCollapsed;
+  const el = document.getElementById('sidebarCanvas');
+  if (el) { el.classList.toggle('collapsed', WS.sidebarCollapsed); }
+  const btn = el?.querySelector('.toggle-btn');
+  if (btn) btn.textContent = WS.sidebarCollapsed ? '▶' : '◀';
+}
+
+// ============================================================
+// RENDER: FRAME PICKER
+// ============================================================
+function togglePicker() {
+  WS.pickerOpen = !WS.pickerOpen;
+  render();
+}
+
+function renderPickerContent() {
+  if (WS.allFrameMetas.length === 0) {
+    return '<p style="font-size:12px;color:var(--text2);text-align:center;padding:12px;">请先加载 Figma 文件</p>';
+  }
+  const groups = {};
+  for (let i = 0; i < WS.allFrameMetas.length; i++) {
+    const m = WS.allFrameMetas[i];
+    if (!groups[m.canvasName]) groups[m.canvasName] = [];
+    groups[m.canvasName].push({ ...m, idx: i });
+  }
+  // Check which frames are already in project
+  const existingIds = new Set(WS.frames.map(f => f.id));
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <strong style="font-size:13px;">选择要添加到项目的页面</strong>
+    <div style="display:flex;gap:6px;">
+      <button class="btn sm" onclick="pickerSelectAll()">全选</button>
+      <button class="btn sm" onclick="pickerDeselectAll()">取消全选</button>
+      <button class="btn primary sm" onclick="pickerConfirm()">✅ 确认添加</button>
+    </div>
+  </div>
+  <div style="max-height:300px;overflow-y:auto;">`;
+
+  for (const [canvas, frames] of Object.entries(groups)) {
+    html += `<div style="padding:6px 10px;font-size:10px;font-weight:700;color:var(--text3);background:#f9fafb;">📁 ${esc(canvas)}</div>`;
+    for (const f of frames) {
+      const inProject = existingIds.has(f.id);
+      html += `
+        <label class="fp-item" style="display:flex;align-items:center;gap:10px;${inProject ? 'opacity:.5;' : ''}">
+          <input type="checkbox" class="picker-check" value="${f.idx}" ${inProject ? 'disabled' : 'checked'} style="flex-shrink:0;">
+          <span class="fp-name" style="flex:1;">🖼 ${esc(f.name)}</span>
+          <span class="fp-count">${f.textCount} texts</span>
+          ${inProject ? '<span style="font-size:9px;color:var(--text3);">已添加</span>' : ''}
+        </label>`;
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+
+function pickerSelectAll() {
+  document.querySelectorAll('.picker-check:not([disabled])').forEach(c => c.checked = true);
+}
+function pickerDeselectAll() {
+  document.querySelectorAll('.picker-check:not([disabled])').forEach(c => c.checked = false);
+}
+
+function pickerConfirm() {
+  const checks = document.querySelectorAll('.picker-check:checked:not([disabled])');
+  if (checks.length === 0) { showToast('请至少选择一个 Frame'); return; }
+  const selectedIndices = Array.from(checks).map(cb => parseInt(cb.value));
+  addFramesToProject(selectedIndices);
+  WS.pickerOpen = false;
+  render();
+}
+
+async function addFramesToProject(selectedIndices) {
+  WS.status = `正在处理 ${selectedIndices.length} 个 Frame...`;
+  WS.statusType = 'loading';
+  renderToolbar();
+
+  const imageIds = [];
+  let totalFields = 0, totalFiltered = 0;
+
+  for (const idx of selectedIndices) {
+    const meta = WS.allFrameMetas[idx];
+    // Check if frame already exists → skip
+    if (WS.frames.some(f => f.id === meta.id)) continue;
+
+    const { fields, filtered } = deepScanFrame(meta, WS.rawData);
+    totalFields += fields.length;
+    totalFiltered += filtered;
+    WS.frames.push({
+      id: meta.id, name: meta.name, canvasName: meta.canvasName,
+      frameBox: meta.frameBox, fields: fields
+    });
+    if (!meta.id.startsWith('mock-')) imageIds.push(meta.id);
+  }
+
+  if (imageIds.length > 0 && WS.token) {
+    const newImages = await fetchFrameImages(WS.fileKey, WS.token, imageIds);
+    Object.assign(WS.frameImages, newImages);
+  }
+
+  WS.status = `已添加 ${selectedIndices.length} 个 Frame · ${totalFields} 个字段`;
+  WS.statusType = 'ok';
+  render();
+}
+
+// ============================================================
+// RENDER: PREVIEW + KEY TABLE
+// ============================================================
+function renderPreviewContent() {
+  const body = document.getElementById('previewBody');
+  if (!body) return;
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) {
+    body.innerHTML = '<div class="empty-state"><div class="icon">📱</div><p>暂无页面数据</p></div>';
+    const label = document.getElementById('previewFrameLabel');
+    if (label) label.textContent = '';
+    return;
+  }
+
+  const label = document.getElementById('previewFrameLabel');
+  if (label) label.textContent = frame.canvasName ? `${frame.canvasName} / ${frame.name}` : frame.name;
+
+  const imgUrl = WS.frameImages[frame.id];
+  const visibleFields = frame.fields.filter(f => !f.hidden);
+
+  if (imgUrl) {
+    const overlaysHTML = visibleFields.map((f) => {
+      const realIdx = frame.fields.indexOf(f);
+      return `<div class="highlight-overlay" data-field="${realIdx}"
+        style="left:${(f.relX*100).toFixed(2)}%;top:${(f.relY*100).toFixed(2)}%;width:${Math.max(f.relW*100,1).toFixed(2)}%;height:${Math.max(f.relH*100,0.5).toFixed(2)}%;">
+        <div class="hl-num">${realIdx+1}</div></div>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div style="position:relative;display:inline-block;line-height:0;width:100%;">
+        <img src="${imgUrl}" alt="${esc(frame.name)}" style="width:100%;display:block;"
+             onerror="console.warn('Image load failed')">
+        <div style="position:absolute;inset:0;pointer-events:none;">${overlaysHTML}</div>
+      </div>`;
+  } else {
+    const colors = ['#eff6ff','#fef3c7','#f3e8ff','#ccfbf1','#fff1f2','#f0fdf4','#fff7ed','#f5f3ff'];
+    body.innerHTML = `
+      <div style="background:#fff;width:100%;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:16px;font-size:12px;display:flex;flex-direction:column;gap:8px;">
+        ${visibleFields.map((f, i) => `
+          <div style="padding:5px 8px;background:${colors[i%colors.length]};border:1px dashed #93c5fd;border-radius:4px;display:flex;align-items:center;gap:8px;">
+            <span style="color:#2563eb;font-weight:600;font-size:10px;min-width:18px;">${i+1}</span>
+            <span>${esc(f.text)}</span></div>`).join('')}
+        <div style="font-size:10px;color:#9ca3af;text-align:center;">${visibleFields.length} 个字段（无 Figma 截图时显示占位）</div>
+      </div>`;
+  }
+}
+
+function renderKeyTable() {
+  const tbody = document.getElementById('keyTableBody');
+  if (!tbody) return;
+  const frame = WS.frames[WS.currentFrameIdx];
+  const showHidden = document.getElementById('showHidden')?.checked || false;
+
+  if (!frame || frame.fields.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:48px;">当前页面无字段</td></tr>';
+    const fc = document.getElementById('fieldCount');
+    if (fc) fc.textContent = '0 fields';
+    return;
+  }
+
+  const displayFields = showHidden ? frame.fields : frame.fields.filter(f => !f.hidden);
+  const fc = document.getElementById('fieldCount');
+  if (fc) fc.textContent = `${displayFields.length} fields (${frame.fields.length} total)`;
+
+  tbody.innerHTML = displayFields.map((f) => {
+    const realIdx = frame.fields.indexOf(f);
+    const key = buildKey(f, WS.domain);
+    const modOpts = MODULE_ENUMS.map(m => `<option value="${m}" ${f.module===m?'selected':''}>${m}</option>`).join('');
+    const modCustom = f.module && !MODULE_ENUMS.includes(f.module) ? `<option value="${f.module}" selected>${f.module}</option>` : '';
+    return `
+      <tr class="${f.hidden ? 'row-hidden' : ''}" data-field-idx="${realIdx}"
+          onmouseenter="highlightField(${realIdx},true)" onmouseleave="highlightField(${realIdx},false)">
+        <td style="color:var(--text3);">${realIdx+1}</td>
+        <td><button class="hide-btn" title="${f.hidden?'取消隐藏':'隐藏'}" onclick="toggleHide(${realIdx})">${f.hidden?'👁':'🚫'}</button></td>
+        <td class="td-figma" title="${esc(f.text)}">${esc(f.text)}</td>
+        <td><span class="tag blue">${esc(WS.domain)}</span></td>
+        <td><input type="text" value="${esc(f.page)}" onchange="updateField(${realIdx},'page',this.value)"></td>
+        <td>
+          <select onchange="updateField(${realIdx},'module',this.value)" style="width:100%;">
+            <option value="">-- 待选 --</option>
+            ${modOpts}${modCustom}
+          </select>
+          <input type="text" value="${esc((f.module && !MODULE_ENUMS.includes(f.module)) ? f.module : '')}" placeholder="自定义" onchange="updateField(${realIdx},'module',this.value)" style="margin-top:2px;font-size:10px;">
+        </td>
+        <td><input type="text" value="${esc(f.title)}" onchange="updateField(${realIdx},'title',this.value)"></td>
+        <td><input type="text" value="${esc(f.body||'')}" onchange="updateField(${realIdx},'body',this.value)" placeholder="可选"></td>
+        <td class="td-key" title="${esc(key)}">${key || '<span style="color:#9ca3af;">待完善...</span>'}</td>
+      </tr>`;
+  }).join('');
+}
+
+// ============================================================
+// INTERACTIONS
+// ============================================================
+function highlightField(idx, active) {
+  const overlay = document.querySelector(`.highlight-overlay[data-field="${idx}"]`);
+  if (overlay) { overlay.classList.toggle('active', active); }
+  const row = document.querySelector(`tr[data-field-idx="${idx}"]`);
+  if (row) { row.classList.toggle('row-hover', active); }
+}
+
+function updateField(idx, prop, value) {
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  frame.fields[idx][prop] = value;
+  renderKeyTable();
+}
+
+function toggleHide(idx) {
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  frame.fields[idx].hidden = !frame.fields[idx].hidden;
+  renderPreviewContent();
+  renderKeyTable();
+}
+
+function unhideAll() {
+  for (const f of WS.frames) for (const fi of f.fields) fi.hidden = false;
+  renderPreviewContent();
+  renderKeyTable();
+}
+
+function deleteHidden() {
+  if (!confirm('删除当前页面所有已隐藏字段？')) return;
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  const before = frame.fields.length;
+  frame.fields = frame.fields.filter(f => !f.hidden);
+  showToast(`已删除 ${before - frame.fields.length} 个字段`);
+  render();
+}
+
+function navFrame(dir) {
+  const newIdx = WS.currentFrameIdx + dir;
+  if (newIdx >= 0 && newIdx < WS.frames.length) {
+    WS.currentFrameIdx = newIdx;
+    renderPreviewContent();
+    renderKeyTable();
+    updateNav();
+    updateSidebarTree();
+  }
+}
+
+function updateNav() {
+  const total = WS.frames.length;
+  const frame = WS.frames[WS.currentFrameIdx];
+  const pn = document.getElementById('pageName');
+  const pc = document.getElementById('pageCount');
+  const btnP = document.getElementById('btnPrev');
+  const btnN = document.getElementById('btnNext');
+  if (!pn) return;
+  pn.textContent = frame ? (frame.canvasName ? `${frame.canvasName} / ${frame.name}` : frame.name) : '--';
+  if (pc) pc.textContent = total > 1 ? `${WS.currentFrameIdx+1} / ${total}` : '';
+  if (btnP) { btnP.style.display = total > 1 ? '' : 'none'; btnP.disabled = WS.currentFrameIdx <= 0; }
+  if (btnN) { btnN.style.display = total > 1 ? '' : 'none'; btnN.disabled = WS.currentFrameIdx >= total - 1; }
+}
+
+// ============================================================
+// FIGMA LOAD / SYNC
+// ============================================================
+async function loadFigmaForProject() {
+  const urlEl = document.getElementById('figmaUrl');
+  const tokenEl = document.getElementById('figmaToken');
+  if (!urlEl || !tokenEl) return;
+  const url = urlEl.value.trim();
+  const token = tokenEl.value.trim();
+  if (!url || !token) { showToast('请填写 Figma URL 和 Token'); return; }
+  const fileKey = parseFileKey(url);
+  if (!fileKey) { showToast('无法解析 Figma URL'); return; }
+
+  WS.figmaUrl = url;
+  WS.token = token;
+  WS.fileKey = fileKey;
+  WS.status = '正在加载 Figma...';
+  WS.statusType = 'loading';
+  render();
+
+  try {
+    const data = await fetchFigmaFile(fileKey, token);
+    WS.rawData = data;
+    WS.allFrameMetas = scanFigmaFrames(data);
+    WS.status = `已扫描 ${WS.allFrameMetas.length} 个 Frame`;
+    WS.statusType = 'ok';
+    WS.pickerOpen = true;
+
+    // Persist figmaUrl/token to project
+    const projects = loadProjects();
+    const idx = projects.findIndex(p => p.id === WS.projectId);
+    if (idx >= 0) {
+      projects[idx].figmaUrl = url;
+      projects[idx].updatedAt = Date.now();
+      saveProjects(projects);
+    }
+    render();
+  } catch(err) {
+    console.error(err);
+    WS.status = `加载失败: ${err.message}`;
+    WS.statusType = 'err';
+    render();
+    showToast('Figma 加载失败: ' + err.message);
+  }
+}
+
+async function syncFigma() {
+  if (!WS.fileKey || !WS.token) { showToast('请先加载 Figma 文件'); return; }
+  WS.status = '正在同步 Figma...';
+  WS.statusType = 'loading';
+  render();
+
+  try {
+    const data = await fetchFigmaFile(WS.fileKey, WS.token);
+    WS.rawData = data;
+    WS.allFrameMetas = scanFigmaFrames(data);
+    WS.status = '同步完成 · 点击「管理页面」添加新 Frame';
+    WS.statusType = 'ok';
+    WS.pickerOpen = true;
+    render();
+  } catch(err) {
+    WS.status = `同步失败: ${err.message}`;
+    WS.statusType = 'err';
+    render();
+    showToast('同步失败: ' + err.message);
+  }
+}
+
+// ============================================================
+// PERSISTENCE: SAVE / LOAD PROJECT DATA
+// ============================================================
+async function saveCurrentProject() {
+  if (!WS.projectId) return;
+  WS.status = '正在保存...';
+  WS.statusType = 'loading';
+  renderToolbar();
+
+  try {
+    // Save raw Figma data
+    if (WS.rawData) {
+      WS.aiKey = document.getElementById('aiApiKey')?.value?.trim() || WS.aiKey;
+      await dbPut('figmaData', {
+        projectId: WS.projectId,
+        fileKey: WS.fileKey,
+        rawData: WS.rawData,
+        frameImages: WS.frameImages,
+        figmaUrl: WS.figmaUrl,
+        token: WS.token,
+        aiKey: WS.aiKey,
+        timestamp: Date.now()
+      });
+    }
+    // Save key data
+    await dbPut('projectKeys', {
+      projectId: WS.projectId,
+      domain: WS.domain,
+      frames: WS.frames.map(f => ({
+        id: f.id, name: f.name, canvasName: f.canvasName,
+        frameBox: f.frameBox, fields: f.fields
+      }))
+    });
+
+    // Update project timestamp
+    const projects = loadProjects();
+    const idx = projects.findIndex(p => p.id === WS.projectId);
+    if (idx >= 0) { projects[idx].updatedAt = Date.now(); saveProjects(projects); }
+
+    WS.status = '已保存';
+    WS.statusType = 'ok';
+    renderToolbar();
+    showToast('项目已保存');
+  } catch(err) {
+    console.error('Save failed:', err);
+    WS.status = '保存失败';
+    WS.statusType = 'err';
+    renderToolbar();
+    showToast('保存失败: ' + err.message);
+  }
+}
+
+async function loadProjectData(projectId) {
+  try {
+    const figmaData = await dbGet('figmaData', projectId);
+    const keyData = await dbGet('projectKeys', projectId);
+
+    if (figmaData) {
+      WS.rawData = figmaData.rawData || null;
+      WS.frameImages = figmaData.frameImages || {};
+      WS.fileKey = figmaData.fileKey || '';
+      WS.figmaUrl = figmaData.figmaUrl || '';
+      WS.token = figmaData.token || '';
+      WS.aiKey = figmaData.aiKey || '';
+      if (WS.rawData) {
+        WS.allFrameMetas = scanFigmaFrames(WS.rawData);
+      }
+    }
+
+    if (keyData) {
+      WS.domain = keyData.domain || WS.domain;
+      WS.frames = keyData.frames || [];
+    }
+
+    if (!figmaData && !keyData) return false; // No saved data
+    return true;
+  } catch(err) {
+    console.error('Load failed:', err);
+    return false;
+  }
+}
+
+// ============================================================
+// PROJECT CRUD
+// ============================================================
+function openProjectModal(projectId) {
+  EDITING_PROJECT_ID = projectId;
+  const title = document.getElementById('projectModalTitle');
+  const nameEl = document.getElementById('projName');
+  const domainEl = document.getElementById('projDomain');
+  const urlEl = document.getElementById('projFigmaUrl');
+  const tokenEl = document.getElementById('projToken');
+  const saveBtn = document.getElementById('projSaveBtn');
+
+  if (projectId) {
+    const projects = loadProjects();
+    const p = projects.find(p => p.id === projectId);
+    if (p) {
+      title.textContent = '编辑项目';
+      nameEl.value = p.name;
+      domainEl.value = p.domain;
+      urlEl.value = p.figmaUrl || '';
+      tokenEl.value = '';
+      saveBtn.textContent = '保存修改';
+    }
+  } else {
+    title.textContent = '新建项目';
+    nameEl.value = '';
+    domainEl.value = '';
+    urlEl.value = '';
+    tokenEl.value = '';
+    saveBtn.textContent = '创建项目';
+  }
+  showModal('projectModal');
+}
+
+function saveProject() {
+  const name = document.getElementById('projName').value.trim();
+  const domain = document.getElementById('projDomain').value.trim();
+  const figmaUrl = document.getElementById('projFigmaUrl').value.trim();
+  const token = document.getElementById('projToken').value.trim();
+
+  if (!name || !domain) { showToast('请填写项目名称和 Domain'); return; }
+
+  const projects = loadProjects();
+
+  if (EDITING_PROJECT_ID) {
+    const idx = projects.findIndex(p => p.id === EDITING_PROJECT_ID);
+    if (idx >= 0) {
+      projects[idx].name = name;
+      projects[idx].domain = domain;
+      if (figmaUrl) projects[idx].figmaUrl = figmaUrl;
+      projects[idx].updatedAt = Date.now();
+    }
+  } else {
+    const id = 'proj_' + Date.now();
+    projects.push({
+      id, name, domain,
+      figmaUrl: figmaUrl || '',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+  }
+
+  saveProjects(projects);
+  hideModal('projectModal');
+  render();
+  showToast(EDITING_PROJECT_ID ? '项目已更新' : '项目已创建');
+}
+
+async function deleteProject(projectId) {
+  if (!confirm('确定删除此项目？所有保存的 Figma 数据和 Key 将被删除，此操作不可恢复。')) return;
+  const projects = loadProjects().filter(p => p.id !== projectId);
+  saveProjects(projects);
+  try { await dbDelete('figmaData', projectId); } catch(e) {}
+  try { await dbDelete('projectKeys', projectId); } catch(e) {}
+  render();
+  showToast('项目已删除');
+}
+
+async function enterProject(projectId) {
+  const projects = loadProjects();
+  const proj = projects.find(p => p.id === projectId);
+  if (!proj) return;
+  wsReset();
+  WS.projectId = projectId;
+  WS.domain = proj.domain;
+  WS.figmaUrl = proj.figmaUrl || '';
+
+  // Try loading saved data
+  WS.status = '正在加载项目...';
+  WS.statusType = 'loading';
+  render();
+
+  const hasData = await loadProjectData(projectId);
+  if (hasData) {
+    WS.status = '已加载保存的数据';
+    WS.statusType = 'ok';
+  } else {
+    WS.status = '新项目 · 请加载 Figma 文件';
+    WS.statusType = '';
+  }
+  render();
+}
+
+function backToProjects() {
+  wsReset();
+  render();
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportJSON() {
+  const output = {
+    domain: WS.domain,
+    projectId: WS.projectId,
+    exportedAt: new Date().toISOString(),
+    pages: WS.frames.map(f => ({
+      frameName: f.name, frameId: f.id, canvasName: f.canvasName,
+      fields: f.fields.filter(fi => !fi.hidden).map(fi => ({
+        figmaText: fi.text, key: buildKey(fi, WS.domain),
+        page: fi.page, module: fi.module, title: fi.title, body: fi.body || null
+      }))
+    }))
+  };
+  downloadBlob(JSON.stringify(output, null, 2), `copy-keys-${WS.domain}.json`, 'application/json');
+  showToast('已导出 JSON');
+}
+
+function exportCSV() {
+  const rows = [['Frame','Canvas','Figma Text','Domain','Page','Module','Title','Body','Full Key']];
+  for (const f of WS.frames) {
+    for (const fi of f.fields) {
+      if (fi.hidden) continue;
+      rows.push([f.name, f.canvasName, fi.text, WS.domain, fi.page, fi.module, fi.title, fi.body||'', buildKey(fi, WS.domain)]);
+    }
+  }
+  const csv = rows.map(r => r.map(c => `"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadBlob('﻿' + csv, `copy-keys-${WS.domain}.csv`, 'text/csv;charset=utf-8');
+  showToast('已导出 CSV');
+}
+
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => t.classList.remove('show'), 2200);
+}
+function showModal(id) { document.getElementById(id).classList.add('show'); }
+function hideModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function renderToolbar() {
+  const el = document.getElementById('wsToolbar');
+  if (el) el.innerHTML = renderToolbarContent();
+}
+
+// Keyboard
+document.addEventListener('keydown', function(e) {
+  if (!WS.projectId) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (WS.frames.length > 1) {
+    if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navFrame(-1); }
+    if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navFrame(1); }
+  }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+(async function init() {
+  await loadRules();
+  render();
+})();
+</script>
+</body>
+</html>

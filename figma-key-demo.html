@@ -194,6 +194,33 @@
   .hide-btn { cursor: pointer; font-size: 14px; color: var(--text3); padding: 2px 4px; border: none; background: none; }
   .hide-btn:hover { color: var(--red); }
 
+  /* Tab buttons */
+  .tab-btn {
+    padding: 6px 16px; border: none; background: transparent;
+    color: rgba(255,255,255,.6); font-size: 12px; font-weight: 500;
+    cursor: pointer; border-radius: 5px; font-family: inherit; transition: .15s;
+  }
+  .tab-btn.active { background: rgba(255,255,255,.2); color: #fff; font-weight: 600; }
+  .tab-btn:hover:not(.active):not(:disabled) { color: rgba(255,255,255,.85); }
+  .tab-btn:disabled { cursor: not-allowed; }
+
+  .btn.purple { background: var(--purple); color: #fff; border-color: var(--purple); }
+  .btn.purple:hover { opacity: .9; }
+  .row-ai td { background: #f0fdf4; }
+  input.ai-filled { background: #f0fdf4; border-color: #bbf7d0; }
+  .compliance-result { font-size: 11px; padding: 8px 10px; border-radius: 6px; }
+  .compliance-result.pass { background: var(--green-bg); color: var(--green); }
+  .compliance-result.warn { background: var(--amber-bg); color: var(--amber); }
+  .compliance-result.fail { background: var(--red-bg); color: var(--red); }
+  .sidebar-col .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar-col .sb-header { padding: 8px 12px; font-size: 10px; font-weight: 700; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-col .sb-body { flex: 1; overflow-y: auto; font-size: 10px; padding: 6px 0; }
+  .l2-body.collapsed { display: none; }
+  .l3-chip { background: var(--blue-bg); color: var(--blue); font-size: 9px; padding: 2px 7px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .l3-chip:hover { background: #dbeafe; }
+  .layer2-card textarea { width: 100%; padding: 6px 8px; font-size: 10px; font-family: inherit; border: 1px solid var(--border); border-radius: var(--radius-sm); resize: vertical; min-height: 40px; }
+  .layer2-card textarea:focus, .layer1-row textarea:focus { outline: none; border-color: var(--blue); }
+
   /* Picker panel */
   .picker-panel {
     background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
@@ -246,6 +273,56 @@
 </head>
 <body>
 <div class="app" id="appRoot"></div>
+<!-- AI Copy Popup -->
+<div class="modal-overlay" id="aiCopyPopup">
+  <div class="modal" style="width:520px;max-width:94%;">
+    <h4>🤖 AI 写文案</h4>
+    <div style="font-size:10px;color:var(--text3);display:flex;gap:12px;margin-bottom:10px;">
+      <span><strong>Key:</strong> <span id="aiPopupKey">—</span></span>
+      <span><strong>Module:</strong> <span id="aiPopupModule">—</span></span>
+      <span><strong>Figma 草稿:</strong> <span id="aiPopupFigma">—</span></span>
+    </div>
+    <div class="form-group">
+      <label>💬 Layer 3 · 字段提示</label>
+      <textarea id="aiPopupHint" rows="3" placeholder="描述触发条件、交互行为、状态变化、跳转目标..."></textarea>
+    </div>
+    <input type="hidden" id="aiPopupFieldIdx">
+    <div style="margin-bottom:8px;"><button class="btn purple sm" onclick="generateAICopy()">🪄 生成文案</button></div>
+    <div id="aiPopupResult" style="display:none;display:flex;gap:8px;margin-bottom:8px;">
+      <div style="flex:1;"><label>🇨🇳 中文</label><input type="text" id="aiPopupResultZH" style="width:100%;padding:6px 8px;border:1px solid #bbf7d0;background:#f0fdf4;border-radius:4px;font-size:12px;"></div>
+      <div style="flex:1;"><label>🇺🇸 English</label><input type="text" id="aiPopupResultEN" style="width:100%;padding:6px 8px;border:1px solid #bbf7d0;background:#f0fdf4;border-radius:4px;font-size:12px;"></div>
+    </div>
+    <div id="aiPopupComp" style="font-size:11px;padding:8px 10px;border-radius:6px;margin-bottom:8px;"></div>
+    <div class="modal-actions">
+      <button class="btn sm" onclick="closeAICopyPopup()">取消</button>
+      <button class="btn primary sm" onclick="confirmAICopy()">✅ 确认并填入表格</button>
+    </div>
+  </div>
+</div>
+
+<!-- Visual Doc Picker -->
+<div class="modal-overlay" id="visualDocPicker">
+  <div class="modal" style="width:480px;max-height:70vh;display:flex;flex-direction:column;">
+    <h4>📄 选择导出页面</h4>
+    <p style="font-size:11px;color:var(--text2);margin-bottom:8px;">勾选需要导出到视觉文档的页面，默认全选有截图的页面</p>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button class="btn sm" onclick="document.querySelectorAll('.vd-check:not([disabled])').forEach(c=>c.checked=true)">全选</button>
+      <button class="btn sm" onclick="document.querySelectorAll('.vd-check').forEach(c=>c.checked=false)">取消全选</button>
+      <span style="flex:1;"></span>
+      <button class="btn primary sm" onclick="exportVisualDocSelected()">📄 导出选中页面</button>
+    </div>
+    <div id="vdPickerList" style="overflow-y:auto;max-height:400px;"></div>
+  </div>
+</div>
+
+<!-- Compliance Result Popup -->
+<div class="modal-overlay" id="complianceResultPopup">
+  <div class="modal" style="width:480px;max-width:94%;">
+    <h4>🔍 AI 合规审查</h4>
+    <div id="compResultContent"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Create Project Modal -->
@@ -728,6 +805,7 @@ function deepScanFrame(meta, rawData) {
               page: mapFrameToPage(meta.name) || '',
               module: detectModule(raw, relY),
               title: suggestTitle(raw), body: '', hidden: false,
+              zhCN: raw, enUS: '', jaJP: '',
               relX: frameBox.width > 0 ? (textBox.x - frameBox.x) / frameBox.width : 0,
               relY: relY,
               relW: frameBox.width > 0 ? textBox.width / frameBox.width : 0,
@@ -794,13 +872,16 @@ let WS = {
   currentFrameIdx: 0,
   status: '', statusType: '',
   pickerOpen: false, sidebarCollapsed: false,
-  aiKey: '',
+  aiKey: '', activeTab: 'keys', copySaved: false,
+  layer1Prompt: '', layer2Prompts: {}, layer3Hints: {}, _compliance: {},
 };
 
 function wsReset() {
   WS = { projectId: null, domain: '', figmaUrl: '', token: '', fileKey: '', rawData: null,
     frameImages: {}, frames: [], allFrameMetas: [], currentFrameIdx: 0,
-    status: '', statusType: '', pickerOpen: false, sidebarCollapsed: false };
+    status: '', statusType: '', pickerOpen: false, sidebarCollapsed: false,
+    aiKey: '', activeTab: 'keys', copySaved: false,
+    layer1Prompt: '', layer2Prompts: {}, layer3Hints: {}, _compliance: {} };
 }
 
 let EDITING_PROJECT_ID = null; // for edit modal
@@ -817,7 +898,11 @@ function render() {
   }
   if (WS.projectId) {
     renderPreviewContent();
-    renderKeyTable();
+    if (WS.activeTab === 'copy') {
+      renderCopyTable();
+    } else {
+      renderKeyTable();
+    }
     updateSidebarTree();
     updateNav();
   }
@@ -867,6 +952,8 @@ function renderWorkspace() {
   const proj = loadProjects().find(p => p.id === WS.projectId);
   const projName = proj ? proj.name : 'Unknown';
   const hasData = WS.frames.length > 0;
+  const hasCopyData = WS.copySaved || (WS.frames.length > 0 && WS.frames.some(f => f.fields.some(fi => fi.zhCN || fi.enUS || fi.jaJP)));
+  const isKeys = WS.activeTab !== 'copy';
 
   let html = `
     <div class="header">
@@ -874,25 +961,47 @@ function renderWorkspace() {
       <h1>${esc(projName)}</h1>
       <span style="font-size:11px;opacity:.5;">Domain: ${esc(WS.domain)}</span>
       <span style="flex:1;"></span>
+      <div style="display:flex;gap:0;background:rgba(255,255,255,.1);border-radius:6px;padding:2px;">
+        <button class="tab-btn ${isKeys ? 'active' : ''}" onclick="switchTab('keys')">🔑 Key Generator</button>
+        <button class="tab-btn ${!isKeys ? 'active' : ''}" onclick="switchTab('copy')" ${!hasCopyData ? 'disabled style="opacity:.4;"' : ''}>✏️ Copywriting</button>
+      </div>
+      <span style="flex:1;"></span>
       ${hasData ? `<button class="btn sm" onclick="saveCurrentProject()">💾 保存项目</button>` : ''}
       <button class="btn sm" onclick="backToProjects()">🏠 回到列表</button>
     </div>`;
 
-  // Toolbar
-  html += `<div class="toolbar" id="wsToolbar">`;
-  html += renderToolbarContent();
-  html += `</div>`;
+  if (!isKeys) {
+    // === COPYWRITING TAB ===
+    html += renderCopywritingTab();
+  } else {
+    // === KEY GENERATOR TAB ===
+    // Toolbar
+    html += `<div class="toolbar" id="wsToolbar">`;
+    html += renderToolbarContent();
+    html += `</div>`;
 
-  // Frame picker (if open)
-  if (WS.pickerOpen) {
-    html += `<div class="picker-panel" id="pickerPanel">${renderPickerContent()}</div>`;
+    // Frame picker (if open)
+    if (WS.pickerOpen) {
+      html += `<div class="picker-panel" id="pickerPanel">${renderPickerContent()}</div>`;
+    }
+
+    // Main layout
+    html += renderKeyWorkspace(hasData);
   }
+  return html;
+}
 
-  // Main layout
-  html += `<div class="ws-layout">`;
+function renderKeyWorkspace(hasData) {
+  let html = `<div class="ws-layout">`;
+  html += renderSidebarHTML();
+  html += renderPreviewPanelHTML(hasData);
+  html += renderKeyTablePanelHTML();
+  html += `</div>`;
+  return html;
+}
 
-  // Sidebar
-  html += `<div class="sidebar-canvas${WS.sidebarCollapsed ? ' collapsed' : ''}" id="sidebarCanvas">`;
+function renderSidebarHTML() {
+  let html = `<div class="sidebar-canvas${WS.sidebarCollapsed ? ' collapsed' : ''}" id="sidebarCanvas">`;
   html += `<div class="sb-header">
     <span>📁 页面目录</span>
     <span class="toggle-btn" onclick="toggleSidebar()">${WS.sidebarCollapsed ? '▶' : '◀'}</span>
@@ -902,9 +1011,11 @@ function renderWorkspace() {
     <button class="btn sm" onclick="togglePicker()" style="width:100%;">📋 管理页面</button>
   </div>`;
   html += `</div>`;
+  return html;
+}
 
-  // Preview panel
-  html += `<div class="panel-preview" id="panelPreview">
+function renderPreviewPanelHTML(hasData) {
+  return `<div class="panel-preview" id="panelPreview">
     <div class="preview-card">
       <div class="preview-header">📱 Figma 预览 <span id="previewFrameLabel" style="font-size:10px;color:var(--text2);"></span></div>
       <div class="preview-body" id="previewBody">
@@ -918,9 +1029,10 @@ function renderWorkspace() {
       <button class="btn sm" id="btnNext" onclick="navFrame(1)" disabled style="display:none;">▶</button>
     </div>
   </div>`;
+}
 
-  // Key table
-  html += `<div class="panel-keys">
+function renderKeyTablePanelHTML() {
+  return `<div class="panel-keys">
     <div class="keys-card">
       <div class="keys-header">
         <span>🔑 Key 列表 <span style="font-size:10px;color:var(--text2);" id="fieldCount"></span></span>
@@ -934,9 +1046,9 @@ function renderWorkspace() {
         <table>
           <thead><tr>
             <th style="width:26px;">#</th><th style="width:30px;"></th>
-            <th style="width:130px;">Figma 草稿</th><th style="width:60px;">Domain</th>
-            <th style="width:90px;">Page</th><th style="width:100px;">Module</th>
-            <th style="width:100px;">Title</th><th style="width:60px;">Body</th>
+            <th style="width:110px;">Figma 草稿</th><th style="width:55px;">Domain</th>
+            <th style="width:75px;">Page</th><th style="width:85px;">Module</th>
+            <th style="width:85px;">Title</th><th style="width:50px;">Body</th>
             <th>Full Key</th>
           </tr></thead>
           <tbody id="keyTableBody"></tbody>
@@ -944,9 +1056,517 @@ function renderWorkspace() {
       </div>
     </div>
   </div>`;
+}
 
-  html += `</div>`; // ws-layout
+// ---- Tab switching ----
+function switchTab(tab) {
+  if (tab === 'copy') {
+    const hasData = WS.frames.length > 0 && WS.frames.some(f => f.fields.some(fi => fi.zhCN || fi.enUS || fi.jaJP));
+    if (!hasData && !WS.copySaved) { showToast('请先在 Key Generator 中保存项目'); return; }
+  }
+  WS.activeTab = (tab === 'copy') ? 'copy' : 'keys';
+  render();
+}
+
+// ---- Copywriting Tab ----
+// ============================================================
+// COPYWRITING TAB (v3 — three-layer prompt + AI)
+// ============================================================
+
+// Init Layer prompts if missing
+function ensureCopyPrompts() {
+  if (!WS.layer1Prompt) WS.layer1Prompt = '';
+  if (!WS.layer2Prompts) WS.layer2Prompts = {};  // { canvasName: string }
+  if (!WS.layer3Hints) WS.layer3Hints = {};       // { "frameId_fieldIdx": string }
+}
+
+function renderCopywritingTab() {
+  ensureCopyPrompts();
+  const hasData = WS.frames.length > 0;
+  if (!hasData) {
+    return `<div class="empty-state">
+      <div class="icon">🔑</div><p>暂无 Key 数据</p>
+      <p style="font-size:11px;color:var(--text3);">请先在 Key Generator 中加载 Figma 并保存项目</p>
+      <button class="btn" onclick="switchTab('keys')">前往 Key Generator</button>
+    </div>`;
+  }
+  let html = '';
+  // Layer 1 row
+  html += renderLayer1Row();
+  // Sub toolbar
+  const frame = WS.frames[WS.currentFrameIdx];
+  const totalFields = WS.frames.reduce((s,f) => s + f.fields.filter(fi => !fi.hidden).length, 0);
+  const emptyEn = WS.frames.reduce((s,f) => s + f.fields.filter(fi => !fi.hidden && (!fi.enUS || !fi.enUS.trim())).length, 0);
+  html += `<div class="toolbar" style="font-size:11px;color:var(--text2);padding:6px 14px;">
+    <span style="font-weight:600;">✏️ Copywriting</span> · ${totalFields} fields · ${emptyEn} 未完成
+    <span style="flex:1;"></span>
+    <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;"><input type="checkbox" id="copyShowEmpty" onchange="renderCopyTable()" checked> 仅显示未完成</label>
+    <button class="btn sm" onclick="saveCopywriting()">💾 保存文案</button>
+  </div>`;
+  // Three-column workspace
+  html += `<div class="ws-layout">`;
+  html += renderCopySidebarCol();
+  html += renderPreviewPanelHTML(true);
+  html += renderCopyTablePanel();
+  html += `</div>`;
   return html;
+}
+
+function renderLayer1Row() {
+  const hintCount = Object.keys(WS.layer3Hints || {}).length;
+  return `<div class="layer1-row" style="background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:2px;">
+    <div style="flex:1;">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">📋 Layer 1 · 项目背景</div>
+      <textarea id="layer1Input" rows="1" style="width:100%;padding:7px 10px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:var(--radius-sm);resize:vertical;min-height:32px;" placeholder="描述这个项目的整体背景：什么产品、面向什么用户、什么平台、品牌调性...">${esc(WS.layer1Prompt || '')}</textarea>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
+      <button class="btn purple sm" onclick="batchAICopy()">🤖 AI 批量生成文案</button>
+      <button class="btn sm" style="color:var(--amber);border-color:#fde68a;" onclick="batchAICompliance()">🔍 AI 合规审查</button>
+      <input type="password" id="copyAiKey" placeholder="DeepSeek Key" style="width:130px;font-size:9px;padding:3px 6px;border:1px solid var(--border);border-radius:3px;" value="${esc(WS.aiKey || '')}">
+    </div>
+  </div>`;
+}
+
+function renderCopySidebarCol() {
+  let html = `<div class="sidebar-col" style="width:220px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;position:sticky;top:20px;max-height:calc(100vh - 40px);">`;
+  // Page directory
+  html += `<div class="card" style="background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;flex:1;">
+    <div class="sb-header" style="padding:8px 12px;font-size:10px;font-weight:700;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      📁 页面目录
+      <span style="cursor:pointer;font-size:12px;color:var(--text3);" onclick="toggleCopySidebar()">${WS.sidebarCollapsed ? '▶' : '◀'}</span>
+    </div>
+    <div class="sb-body" style="flex:1;overflow-y:auto;font-size:10px;padding:6px 0;">${renderCopySidebarTree()}</div>
+  </div>`;
+  // Layer 2 card
+  const currentCanvas = WS.frames[WS.currentFrameIdx]?.canvasName || '';
+  const l2text = (WS.layer2Prompts || {})[currentCanvas] || '';
+  html += `<div class="card layer2-card" style="background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);flex-shrink:0;">
+    <div class="l2-header" style="padding:6px 10px;font-size:10px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:#fafbfc;" onclick="this.nextElementSibling.classList.toggle('collapsed')">
+      🔄 Layer 2 · User Flow
+      <span style="font-size:8px;color:var(--text3);">${esc(currentCanvas || '—')} ▼</span>
+    </div>
+    <div class="l2-body" style="padding:8px 10px;">
+      <textarea id="layer2Input" data-canvas="${esc(currentCanvas)}" rows="3" style="width:100%;padding:6px 8px;font-size:10px;font-family:inherit;border:1px solid var(--border);border-radius:var(--radius-sm);resize:vertical;min-height:40px;" placeholder="描述当前 Figma Page 的 User Flow...">${esc(l2text)}</textarea>
+      <div style="font-size:9px;color:var(--blue);margin-top:3px;">📍 当前匹配：${esc(currentCanvas || '—')} · 切换 Page 时自动切换</div>
+    </div>
+  </div>`;
+  html += `</div>`;
+  return html;
+}
+
+function renderCopySidebarTree() {
+  if (WS.frames.length === 0) return '<div style="padding:16px;font-size:10px;color:var(--text3);">暂无页面</div>';
+  const groups = {};
+  for (let i = 0; i < WS.frames.length; i++) {
+    const f = WS.frames[i];
+    const c = f.canvasName || 'Unnamed';
+    if (!groups[c]) groups[c] = [];
+    groups[c].push({ ...f, idx: i });
+  }
+  let html = '';
+  for (const [canvas, frames] of Object.entries(groups)) {
+    html += `<div class="canvas-group"><div class="cg-header">▼ 📁 ${esc(canvas)}</div>`;
+    for (const f of frames) {
+      const active = f.idx === WS.currentFrameIdx ? ' active' : '';
+      html += `<div class="frame-item${active}" onclick="selectCopyFrame(${f.idx})">🖼 ${esc(f.name)}</div>`;
+    }
+    html += `</div>`;
+  }
+  return html;
+}
+
+function selectCopyFrame(idx) {
+  // Save Layer 2 before switching
+  saveLayer2Input();
+  WS.currentFrameIdx = idx;
+  render();
+}
+
+function toggleCopySidebar() {
+  WS.sidebarCollapsed = !WS.sidebarCollapsed;
+  render();
+}
+
+function saveLayer2Input() {
+  const ta = document.getElementById('layer2Input');
+  if (ta) {
+    const canvas = ta.dataset.canvas || '';
+    WS.layer2Prompts = WS.layer2Prompts || {};
+    WS.layer2Prompts[canvas] = ta.value;
+  }
+  // Save Layer 1
+  const l1 = document.getElementById('layer1Input');
+  if (l1) WS.layer1Prompt = l1.value;
+}
+
+// ---- Copy table ----
+function renderCopyTablePanel() {
+  const hintCount = Object.keys(WS.layer3Hints || {}).length;
+  const hintedFields = [];
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (frame) {
+    for (let i = 0; i < frame.fields.length; i++) {
+      const hk = `${frame.id}_${i}`;
+      if ((WS.layer3Hints || {})[hk]) hintedFields.push({ idx: i, text: frame.fields[i].text });
+    }
+  }
+  let html = `<div class="panel-keys">`;
+  // Layer 3 bar
+  html += `<div style="background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:8px 12px;font-size:10px;color:var(--text3);display:flex;align-items:center;gap:8px;">
+    <span>💬 Layer 3 · 字段提示：</span>
+    <span style="font-weight:600;color:var(--purple);">${hintCount} 个字段已填写</span>
+    ${hintedFields.length > 0 ? '<span style="color:var(--text3);">|</span>' : ''}
+    <span style="display:flex;gap:4px;flex-wrap:wrap;">${hintedFields.map(hf => `<span class="l3-chip" style="background:var(--blue-bg);color:var(--blue);font-size:9px;padding:2px 7px;border-radius:8px;cursor:pointer;" onclick="openAICopyPopup(${hf.idx})">#${hf.idx+1} ${esc(hf.text.slice(0,8))}</span>`).join('')}</span>
+    <span style="flex:1;"></span>
+    <button class="btn sm" style="color:var(--amber);border-color:#fde68a;" onclick="batchAICompliance()">🔍 合规审查</button>
+  </div>`;
+  // Table
+  html += `<div class="keys-card" style="flex:1;">
+    <div class="keys-header" style="padding:8px 12px;font-size:10px;font-weight:600;border-bottom:1px solid var(--border);">
+      <span>📝 文案编辑 <span style="font-size:9px;color:var(--text3);" id="copyFieldCount"></span></span>
+    </div>
+    <div class="keys-table-wrap">
+      <table><thead><tr>
+        <th style="width:24px;">#</th><th>Key Name</th><th style="width:24px;">💬</th>
+        <th style="width:160px;">🇨🇳 中文</th><th style="width:160px;">🇺🇸 English</th>
+        <th style="width:30px;">✓</th><th style="width:36px;">🤖</th>
+      </tr></thead><tbody id="copyTableBody"></tbody></table>
+    </div>
+  </div>`;
+  html += `</div>`;
+  return html;
+}
+
+function renderCopyTable() {
+  const tbody = document.getElementById('copyTableBody');
+  if (!tbody) return;
+  const frame = WS.frames[WS.currentFrameIdx];
+  const onlyEmpty = document.getElementById('copyShowEmpty')?.checked || false;
+  if (!frame || frame.fields.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:48px;">当前页面无字段</td></tr>';
+    return;
+  }
+  const fields = onlyEmpty
+    ? frame.fields.filter(f => !f.hidden && (!f.enUS || !f.enUS.trim()))
+    : frame.fields.filter(f => !f.hidden);
+  const fc = document.getElementById('copyFieldCount');
+  if (fc) fc.textContent = `${fields.length} fields`;
+
+  let counter = 0;
+  tbody.innerHTML = fields.map((f) => {
+    counter++;
+    const realIdx = frame.fields.indexOf(f);
+    const key = buildKey(f, WS.domain);
+    const hintKey = `${frame.id}_${realIdx}`;
+    const hasHint = !!(WS.layer3Hints || {})[hintKey];
+    const isAiFilled = f._aiGenerated;
+    const compResult = (WS._compliance || {})[hintKey];
+    let compTag = '';
+    if (compResult === 'pass') compTag = '<span class="tag green">✓</span>';
+    else if (compResult === 'warn') compTag = '<span class="tag amber">⚠</span>';
+    else if (compResult === 'fail') compTag = '<span class="tag red">✗</span>';
+    return `
+      <tr data-field-idx="${realIdx}" class="${isAiFilled ? 'row-ai' : ''}"
+          onmouseenter="highlightField(${realIdx},true)" onmouseleave="highlightField(${realIdx},false)">
+        <td style="color:var(--text3);">${counter}</td>
+        <td class="td-key" title="${esc(key)}">${esc(key)}</td>
+        <td>${hasHint ? '<span class="tag purple" title="已填提示词">💬</span>' : ''}</td>
+        <td><input type="text" class="${isAiFilled ? 'ai-filled' : ''}" value="${esc(f.zhCN || '')}" onchange="updateCopyField(${WS.currentFrameIdx},${realIdx},'zhCN',this.value)" placeholder="中文文案"></td>
+        <td><input type="text" class="${isAiFilled ? 'ai-filled' : ''}" value="${esc(f.enUS || '')}" onchange="updateCopyField(${WS.currentFrameIdx},${realIdx},'enUS',this.value)" placeholder="English copy"></td>
+        <td>${compTag}</td>
+        <td><button class="btn ai sm" onclick="openAICopyPopup(${realIdx})" style="font-size:12px;padding:2px 6px;">🤖</button></td>
+      </tr>`;
+  }).join('');
+}
+
+function updateCopyField(frameIdx, fieldIdx, prop, value) {
+  if (WS.frames[frameIdx] && WS.frames[frameIdx].fields[fieldIdx]) {
+    WS.frames[frameIdx].fields[fieldIdx][prop] = value;
+  }
+}
+
+// ---- AI Copy Popup ----
+function openAICopyPopup(fieldIdx) {
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  const f = frame.fields[fieldIdx];
+  if (!f) return;
+  const key = buildKey(f, WS.domain);
+  const hintKey = `${frame.id}_${fieldIdx}`;
+  const hint = (WS.layer3Hints || {})[hintKey] || '';
+
+  document.getElementById('aiPopupKey').textContent = key;
+  document.getElementById('aiPopupModule').textContent = f.module || 'Unknown';
+  document.getElementById('aiPopupFigma').textContent = f.text || '(无)';
+  document.getElementById('aiPopupHint').value = hint;
+  document.getElementById('aiPopupFieldIdx').value = fieldIdx;
+  document.getElementById('aiPopupResultZH').value = '';
+  document.getElementById('aiPopupResultEN').value = '';
+  document.getElementById('aiPopupComp').textContent = '';
+  document.getElementById('aiPopupComp').className = '';
+  document.getElementById('aiPopupResult').style.display = 'none';
+
+  showModal('aiCopyPopup');
+}
+
+function closeAICopyPopup() {
+  hideModal('aiCopyPopup');
+}
+
+async function generateAICopy() {
+  const fieldIdx = parseInt(document.getElementById('aiPopupFieldIdx').value);
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  const f = frame.fields[fieldIdx];
+  if (!f) return;
+  const apiKey = document.getElementById('copyAiKey')?.value?.trim() || WS.aiKey;
+  if (!apiKey) { showToast('请填写 DeepSeek API Key'); return; }
+
+  // Save hint
+  const hintKey = `${frame.id}_${fieldIdx}`;
+  WS.layer3Hints = WS.layer3Hints || {};
+  WS.layer3Hints[hintKey] = document.getElementById('aiPopupHint').value;
+
+  // Collect context
+  saveLayer2Input();
+  const layer1 = WS.layer1Prompt || '';
+  const canvas = frame.canvasName || '';
+  const layer2 = (WS.layer2Prompts || {})[canvas] || '';
+  const layer3 = WS.layer3Hints[hintKey] || '';
+  const module = f.module || 'Other';
+
+  document.getElementById('aiPopupComp').textContent = '⏳ 生成中...';
+  document.getElementById('aiPopupComp').className = '';
+  document.getElementById('aiPopupResult').style.display = 'flex';
+
+  try {
+    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat', max_tokens: 300, temperature: 0.3,
+        messages: [{ role: 'user', content: `You are a UI copywriter for Shanghai Disney Resort digital products.
+Project context: ${layer1}
+User flow: ${layer2}
+Field hint: ${layer3}
+Module type: ${module}
+Figma draft text: "${f.text || ''}"
+Key: ${buildKey(f, WS.domain)}
+
+Follow these rules:
+- ${module} type: ZH ≤ appropriate chars, EN ≤ appropriate words (see type rules)
+- ZH: use 您 not 你, no exclamation marks
+- EN: active voice, warm but professional
+- No advertising law forbidden words (最, 第一, 唯一, 国家级, etc.)
+- Territory: use 中国内地/中国大陆, 中国台湾/中国香港/中国澳门
+- For dropdown: use 国家及地区 not 国家
+- Variables in camelCase: {couponName}
+
+Return ONLY a JSON object: {"zhCN": "...", "enUS": "..."}` }]
+      })
+    });
+    if (!resp.ok) throw new Error(`API ${resp.status}`);
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const m = content.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('No JSON in response');
+    const result = JSON.parse(m[0]);
+
+    document.getElementById('aiPopupResultZH').value = result.zhCN || '';
+    document.getElementById('aiPopupResultEN').value = result.enUS || '';
+
+    // Quick compliance check
+    const warnings = [];
+    if ((result.zhCN||'').includes('！')) warnings.push('中文含感叹号');
+    if ((result.enUS||'').includes('!')) warnings.push('EN 含感叹号');
+    const adWords = ['最','第一','唯一','国家级','顶级','极致','绝对'];
+    for (const w of adWords) { if ((result.zhCN||'').includes(w)) warnings.push(`含广告法禁用词"${w}"`); }
+    if (warnings.length > 0) {
+      document.getElementById('aiPopupComp').innerHTML = '⚠ ' + warnings.join('；');
+      document.getElementById('aiPopupComp').className = 'compliance-result warn';
+    } else {
+      document.getElementById('aiPopupComp').textContent = '✅ 合规检查通过';
+      document.getElementById('aiPopupComp').className = 'compliance-result pass';
+    }
+  } catch(err) {
+    document.getElementById('aiPopupComp').textContent = '❌ 生成失败: ' + err.message;
+    document.getElementById('aiPopupComp').className = 'compliance-result fail';
+  }
+}
+
+function confirmAICopy() {
+  const fieldIdx = parseInt(document.getElementById('aiPopupFieldIdx').value);
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  const f = frame.fields[fieldIdx];
+  if (!f) return;
+  f.zhCN = document.getElementById('aiPopupResultZH').value || f.zhCN;
+  f.enUS = document.getElementById('aiPopupResultEN').value || f.enUS;
+  f._aiGenerated = true;
+  // Save hint
+  const hintKey = `${frame.id}_${fieldIdx}`;
+  WS.layer3Hints = WS.layer3Hints || {};
+  WS.layer3Hints[hintKey] = document.getElementById('aiPopupHint').value;
+  closeAICopyPopup();
+  renderCopyTable();
+  showToast('文案已填入表格');
+}
+
+// ---- Batch AI ----
+async function batchAICopy() {
+  saveLayer2Input();
+  const apiKey = document.getElementById('copyAiKey')?.value?.trim() || WS.aiKey;
+  if (!apiKey) { showToast('请填写 DeepSeek API Key'); return; }
+  // Collect all fields with hints
+  const toGenerate = [];
+  for (const frame of WS.frames) {
+    for (let i = 0; i < frame.fields.length; i++) {
+      const hk = `${frame.id}_${i}`;
+      if ((WS.layer3Hints || {})[hk]) toGenerate.push({ frame, fieldIdx: i });
+    }
+  }
+  if (toGenerate.length === 0) { showToast('没有已填写 Layer 3 提示的字段'); return; }
+  WS.status = `AI 批量生成中 · 0/${toGenerate.length}`;
+  WS.statusType = 'loading';
+  renderToolbar();
+  let done = 0;
+  for (const item of toGenerate) {
+    const f = item.frame.fields[item.fieldIdx];
+    const canvas = item.frame.canvasName || '';
+    const hintKey = `${item.frame.id}_${item.fieldIdx}`;
+    const layer3 = (WS.layer3Hints || {})[hintKey] || '';
+    try {
+      const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'deepseek-chat', max_tokens: 200, temperature: 0.3,
+          messages: [{ role: 'user', content: `UI copy for Shanghai Disney Resort.
+Context: ${WS.layer1Prompt || ''}
+Flow: ${(WS.layer2Prompts||{})[canvas] || ''}
+Hint: ${layer3}
+Module: ${f.module||'Other'}. Figma: "${f.text||''}"
+Key: ${buildKey(f, WS.domain)}
+Rules: ZH≤appropriate length, EN active voice, no 最/第一/唯一/国家级, 您 not 你, camelCase variables.
+Return ONLY JSON: {"zhCN":"...","enUS":"..."}` }]
+        })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        const m = content.match(/\{[\s\S]*\}/);
+        if (m) {
+          const r = JSON.parse(m[0]);
+          if (r.zhCN) f.zhCN = r.zhCN;
+          if (r.enUS) f.enUS = r.enUS;
+          f._aiGenerated = true;
+        }
+      }
+    } catch(e) { console.warn('Batch AI failed for', f.text, e); }
+    done++;
+    WS.status = `AI 批量生成中 · ${done}/${toGenerate.length}`;
+  }
+  WS.status = `AI 批量完成 · ${done} 条`;
+  WS.statusType = 'ok';
+  render();
+}
+
+// ---- AI Compliance ----
+async function batchAICompliance() {
+  saveLayer2Input();
+  const apiKey = document.getElementById('copyAiKey')?.value?.trim() || WS.aiKey;
+  if (!apiKey) { showToast('请填写 DeepSeek API Key'); return; }
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  const fields = frame.fields.filter(f => !f.hidden && (f.zhCN || f.enUS));
+  if (fields.length === 0) { showToast('当前页面无文案可审查'); return; }
+
+  WS.status = '合规审查中...';
+  WS.statusType = 'loading';
+  renderToolbar();
+
+  try {
+    const items = fields.map(f => `Key: ${buildKey(f, WS.domain)}\nZH: ${f.zhCN||''}\nEN: ${f.enUS||''}`).join('\n---\n');
+    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat', max_tokens: 500, temperature: 0,
+        messages: [{ role: 'user', content: `Review these UI copy strings for compliance. Check:
+1. 广告法禁用词 (最/第一/唯一/国家级/顶级/极致/绝对)
+2. 国家及地区表述 (下拉用"国家及地区"非"国家", 台港澳前加"中国")
+3. 感叹号使用
+4. 句式是否符合其类型规范
+
+Return ONLY a JSON object: {"results": [{"key":"...", "status":"pass"|"warn"|"fail", "msg":"..."}]}
+
+Copy strings:\n${items}` }]
+      })
+    });
+    if (!resp.ok) throw new Error(`API ${resp.status}`);
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const m = content.match(/\{[\s\S]*\}/);
+    if (m) {
+      const r = JSON.parse(m[0]);
+      WS._compliance = WS._compliance || {};
+      let pass = 0, warn = 0, fail = 0;
+      const msgs = [];
+      for (const item of (r.results || [])) {
+        for (let i = 0; i < frame.fields.length; i++) {
+          if (buildKey(frame.fields[i], WS.domain) === item.key) {
+            WS._compliance[`${frame.id}_${i}`] = item.status;
+            break;
+          }
+        }
+        if (item.status === 'pass') pass++;
+        else if (item.status === 'warn') { warn++; msgs.push(`⚠ ${item.key}: ${item.msg}`); }
+        else { fail++; msgs.push(`✗ ${item.key}: ${item.msg}`); }
+      }
+      showComplianceResult(pass, warn, fail, msgs);
+    }
+  } catch(err) {
+    showToast('合规审查失败: ' + err.message);
+  }
+  WS.status = '合规审查完成';
+  WS.statusType = 'ok';
+  render();
+}
+
+function showComplianceResult(pass, warn, fail, msgs) {
+  let body = `<p style="font-size:13px;margin-bottom:10px;">审查完成：${pass} 通过`;
+  if (warn > 0) body += ` · ${warn} 建议`;
+  if (fail > 0) body += ` · ${fail} 违规`;
+  body += `</p>`;
+  if (msgs.length > 0) body += `<div style="max-height:200px;overflow-y:auto;font-size:11px;line-height:1.6;background:#f9fafb;padding:10px;border-radius:6px;">${msgs.map(m => `<div>${m}</div>`).join('')}</div>`;
+  body += `<div style="margin-top:12px;text-align:right;"><button class="btn primary sm" onclick="hideModal('complianceResultPopup')">关闭</button></div>`;
+  document.getElementById('compResultContent').innerHTML = body;
+  showModal('complianceResultPopup');
+}
+
+async function saveCopywriting() {
+  saveLayer2Input();
+  WS.aiKey = document.getElementById('copyAiKey')?.value?.trim() || WS.aiKey;
+  WS.status = '正在保存...';
+  WS.statusType = 'loading';
+  renderToolbar();
+  try {
+    if (WS.rawData) {
+      await dbPut('figmaData', { projectId: WS.projectId, fileKey: WS.fileKey, rawData: WS.rawData, frameImages: WS.frameImages, figmaUrl: WS.figmaUrl, token: WS.token, aiKey: WS.aiKey, timestamp: Date.now() });
+    }
+    await dbPut('projectKeys', { projectId: WS.projectId, domain: WS.domain, frames: WS.frames.map(f => ({ id: f.id, name: f.name, canvasName: f.canvasName, frameBox: f.frameBox, fields: f.fields })), layer1Prompt: WS.layer1Prompt, layer2Prompts: WS.layer2Prompts, layer3Hints: WS.layer3Hints });
+    WS.copySaved = true;
+    const projects = loadProjects();
+    const idx = projects.findIndex(p => p.id === WS.projectId);
+    if (idx >= 0) { projects[idx].updatedAt = Date.now(); saveProjects(projects); }
+    WS.status = '已保存'; WS.statusType = 'ok';
+    renderToolbar();
+    showToast('文案已保存');
+  } catch(err) {
+    WS.status = '保存失败'; WS.statusType = 'err';
+    renderToolbar();
+    showToast('保存失败: ' + err.message);
+  }
 }
 
 function renderToolbarContent() {
@@ -964,6 +1584,7 @@ function renderToolbarContent() {
   }
   html += `<button class="btn sm" onclick="exportJSON()" ${WS.frames.length === 0 ? 'disabled' : ''}>📥 JSON</button>`;
   html += `<button class="btn sm" onclick="exportCSV()" ${WS.frames.length === 0 ? 'disabled' : ''}>📥 CSV</button>`;
+  html += `<button class="btn sm primary" onclick="exportVisualDoc()" ${WS.frames.length === 0 ? 'disabled' : ''}>📄 视觉文档</button>`;
   html += `<span style="font-size:11px;color:var(--text3);">|</span>`;
   html += `<input type="password" id="aiApiKey" placeholder="DeepSeek API Key" style="width:160px;font-size:11px;" value="${esc(WS.aiKey || '')}">`;
   html += `<button class="btn sm primary" onclick="batchAITranslate()" ${WS.frames.length === 0 ? 'disabled' : ''}>🤖 AI 翻译</button>`;
@@ -1370,14 +1991,17 @@ async function saveCurrentProject() {
         timestamp: Date.now()
       });
     }
-    // Save key data
+    // Save key data + prompts
     await dbPut('projectKeys', {
       projectId: WS.projectId,
       domain: WS.domain,
       frames: WS.frames.map(f => ({
         id: f.id, name: f.name, canvasName: f.canvasName,
         frameBox: f.frameBox, fields: f.fields
-      }))
+      })),
+      layer1Prompt: WS.layer1Prompt,
+      layer2Prompts: WS.layer2Prompts,
+      layer3Hints: WS.layer3Hints
     });
 
     // Update project timestamp
@@ -1385,6 +2009,7 @@ async function saveCurrentProject() {
     const idx = projects.findIndex(p => p.id === WS.projectId);
     if (idx >= 0) { projects[idx].updatedAt = Date.now(); saveProjects(projects); }
 
+    WS.copySaved = true;
     WS.status = '已保存';
     WS.statusType = 'ok';
     renderToolbar();
@@ -1418,9 +2043,14 @@ async function loadProjectData(projectId) {
     if (keyData) {
       WS.domain = keyData.domain || WS.domain;
       WS.frames = keyData.frames || [];
+      WS.copySaved = true;
+      WS.layer1Prompt = keyData.layer1Prompt || '';
+      WS.layer2Prompts = keyData.layer2Prompts || {};
+      WS.layer3Hints = keyData.layer3Hints || {};
+      WS._compliance = keyData._compliance || {};
     }
 
-    if (!figmaData && !keyData) return false; // No saved data
+    if (!figmaData && !keyData) return false;
     return true;
   } catch(err) {
     console.error('Load failed:', err);
@@ -1567,6 +2197,154 @@ function exportCSV() {
   const csv = rows.map(r => r.map(c => `"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   downloadBlob('﻿' + csv, `copy-keys-${WS.domain}.csv`, 'text/csv;charset=utf-8');
   showToast('已导出 CSV');
+}
+
+// ============================================================
+// VISUAL DOC EXPORT (Word-compatible .doc with screenshots)
+// ============================================================
+async function exportVisualDoc() {
+  if (WS.frames.length === 0) { showToast('无数据可导出'); return; }
+  // Show picker first
+  showVisualDocPicker();
+}
+
+function showVisualDocPicker() {
+  const groups = {};
+  for (let i = 0; i < WS.frames.length; i++) {
+    const f = WS.frames[i];
+    const c = f.canvasName || 'Unnamed';
+    if (!groups[c]) groups[c] = [];
+    groups[c].push({ ...f, idx: i });
+  }
+  let html = '';
+  for (const [canvas, frames] of Object.entries(groups)) {
+    html += `<div style="padding:6px 10px;font-size:10px;font-weight:700;color:var(--text3);background:#f9fafb;">📁 ${esc(canvas)}</div>`;
+    for (const f of frames) {
+      const hasImg = !!WS.frameImages[f.id];
+      html += `
+        <label class="fp-item" style="display:flex;align-items:center;gap:8px;${!hasImg ? 'opacity:.4;' : ''}">
+          <input type="checkbox" class="vd-check" value="${f.idx}" ${hasImg ? 'checked' : 'disabled'}>
+          <span style="flex:1;font-size:12px;">🖼 ${esc(f.name)}</span>
+          <span style="font-size:10px;color:var(--text3);">${f.fields.filter(fi=>!fi.hidden).length} fields${!hasImg ? ' · 无截图' : ''}</span>
+        </label>`;
+    }
+  }
+  document.getElementById('vdPickerList').innerHTML = html;
+  showModal('visualDocPicker');
+}
+
+async function exportVisualDocSelected() {
+  const checks = document.querySelectorAll('.vd-check:checked');
+  if (checks.length === 0) { showToast('请至少选择一个页面'); return; }
+  hideModal('visualDocPicker');
+
+  const selectedIndices = Array.from(checks).map(cb => parseInt(cb.value));
+  WS.status = `正在生成 · 0/${selectedIndices.length}`;
+  WS.statusType = 'loading';
+  renderToolbar();
+
+  try {
+    const framesWithImages = [];
+    for (let j = 0; j < selectedIndices.length; j++) {
+      const frame = WS.frames[selectedIndices[j]];
+      const imgUrl = WS.frameImages[frame.id];
+      const visibleFields = frame.fields.filter(f => !f.hidden);
+      WS.status = `处理截图 ${j+1}/${selectedIndices.length}...`;
+      renderToolbar();
+      const dims = await getImageDimensions(imgUrl, frame, visibleFields);
+      if (!dims) continue;
+      framesWithImages.push({ frame, fields: visibleFields, imgUrl, width: dims.width, height: dims.height });
+    }
+    const html = buildPrintHTML(framesWithImages);
+    downloadBlob(html, `copy-keys-${WS.domain}-visual.html`, 'text/html;charset=utf-8');
+    WS.status = `已生成 · ${framesWithImages.length} 页 · HTML 文档已下载`;
+    WS.statusType = 'ok';
+    showToast('视觉文档已导出');
+  } catch(err) {
+    console.error('Visual doc export failed:', err);
+    WS.status = '导出失败'; WS.statusType = 'err';
+    showToast('导出失败: ' + err.message);
+  }
+  renderToolbar();
+}
+
+function getImageDimensions(imgUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
+    img.src = imgUrl;
+  });
+}
+
+function buildPrintHTML(framesWithImages) {
+  let bodyHTML = '';
+  for (const { frame, fields, imgUrl, width, height } of framesWithImages) {
+    // Generate overlay DIVs (not images) — works reliably in print/PDF
+    const overlayDivs = fields.map((f) => {
+      const idx = frame.fields.indexOf(f);
+      return `<div style="
+        position:absolute;
+        left:${(f.relX*100).toFixed(2)}%;top:${(f.relY*100).toFixed(2)}%;
+        width:${Math.max(f.relW*100,2).toFixed(2)}%;height:${Math.max(f.relH*100,1).toFixed(2)}%;
+        border:1.5px dashed #2563eb;pointer-events:none;z-index:2;
+      "><span style="
+        position:absolute;top:-12px;left:-4px;
+        background:#dc2626;color:#fff;font-size:10px;font-weight:700;
+        width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      ">${idx+1}</span></div>`;
+    }).join('');
+
+    let tableRows = '';
+    for (const f of fields) {
+      const key = buildKey(f, WS.domain);
+      const idx = frame.fields.indexOf(f);
+      tableRows += `<tr>
+        <td style="width:30px;text-align:center;vertical-align:top;">${idx+1}</td>
+        <td style="font-family:Consolas,monospace;font-size:10px;vertical-align:top;">${escXml(key)}</td>
+        <td style="font-size:10px;vertical-align:top;">${escXml(f.text || '')}</td>
+        
+      </tr>`;
+    }
+
+    bodyHTML += `<h2>${escXml(frame.canvasName)} / ${escXml(frame.name)} <span style="font-size:10px;color:#666;font-weight:normal;">(${fields.length} fields)</span></h2>
+      <table style="width:100%;border-collapse:collapse;" class="page-break"><tr>
+        <td style="width:30%;vertical-align:top;padding:8px;">
+          <div style="position:relative;display:block;line-height:0;width:100%;max-width:${width}px;">
+            <img src="${escXml(imgUrl)}" style="width:100%;height:auto;display:block;border:1px solid #ddd;" />
+            ${overlayDivs}
+          </div>
+        </td>
+        <td style="width:70%;vertical-align:top;padding:8px;">
+          <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">
+            <thead><tr style="background:#f5f5f5;">
+              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;font-size:10px;">#</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;font-size:10px;">Key</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;font-size:10px;">中文</th>
+              <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;font-size:10px;">English</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </td>
+      </tr></table>`;
+  }
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+  @page { size: A4 landscape; margin: 12mm; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  body { font-family: -apple-system, 'PingFang SC', Arial, sans-serif; font-size: 11px; color: #1a1c1e; }
+  h1 { font-size: 18px; margin-bottom: 4px; } h2 { font-size: 14px; margin: 8px 0 4px; }
+  table { border-collapse: collapse; } table td { padding: 4px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
+</style></head><body>
+  <h1>Copy Key Document — ${escXml(WS.domain)}</h1>
+  <p style="color:#666;font-size:10px;margin-bottom:16px;">
+    Project: ${escXml(WS.domain)} · Exported: ${new Date().toLocaleDateString('zh-CN')} · ${framesWithImages.length} pages
+  </p>${bodyHTML}
+</body></html>`;
+}
+
+function escXml(str) {
+  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function downloadBlob(content, filename, type) {

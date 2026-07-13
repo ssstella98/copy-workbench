@@ -1,0 +1,241 @@
+{
+  "version": "1.0-draft",
+  "source": "166,616 approved copy pairs from 38 versioned Key_Library files (2025)",
+  "language": {
+    "zh-CN": { "name": "简体中文", "audience": "中国大陆用户" },
+    "en-US": { "name": "English", "audience": "国际游客及系统默认" }
+  },
+  "typeRules": {
+    "Button": {
+      "zh": { "maxChars": 6, "pattern": "verb+noun", "noPeriod": true, "tone": "direct" },
+      "en": { "maxWords": 3, "pattern": "imperative verb phrase", "noPeriod": true, "tone": "direct" }
+    },
+    "Error": {
+      "zh": { "maxChars": 50, "pattern": "problem+suggestion", "startWith": ["抱歉，", "很抱歉，", ""], "period": true, "tone": "apologetic" },
+      "en": { "maxWords": 25, "pattern": "problem+suggestion", "startWith": ["Sorry, ", ""], "period": true, "tone": "apologetic" }
+    },
+    "Title": {
+      "zh": { "maxChars": 20, "pattern": "noun phrase", "noPeriod": true, "tone": "neutral" },
+      "en": { "maxWords": 8, "pattern": "noun phrase", "noPeriod": true, "tone": "neutral" }
+    },
+    "Modal": {
+      "zh": { "maxChars": 200, "pattern": "title+body+actions", "bodyMaxSentences": 3, "period": true, "tone": "explanatory" },
+      "en": { "maxWords": 80, "pattern": "title+body+actions", "bodyMaxSentences": 3, "period": true, "tone": "explanatory" }
+    },
+    "Toast": {
+      "zh": { "maxChars": 50, "pattern": "status+info", "tone": "brief-friendly" },
+      "en": { "maxWords": 25, "pattern": "status+info", "tone": "brief-friendly" }
+    },
+    "Label": {
+      "zh": { "maxChars": 20, "pattern": "noun phrase", "noPeriod": true, "tone": "neutral" },
+      "en": { "maxWords": 8, "pattern": "noun phrase", "noPeriod": true, "tone": "neutral" }
+    },
+    "Link": {
+      "zh": { "maxChars": 40, "pattern": "verb+noun", "tone": "guiding" },
+      "en": { "maxWords": 10, "pattern": "verb+noun", "tone": "guiding" }
+    },
+    "Confirm": {
+      "zh": { "maxChars": 30, "pattern": "status statement", "tone": "neutral" },
+      "en": { "maxWords": 10, "pattern": "status statement", "tone": "neutral" }
+    },
+    "Text": {
+      "zh": { "maxChars": 200, "pattern": "descriptive", "period": true, "tone": "varies" },
+      "en": { "maxWords": 80, "pattern": "descriptive", "period": true, "tone": "varies" }
+    }
+  },
+  "globalRules": {
+    "voice": {
+      "zh": "友好专业，用'您'，不用'你'",
+      "en": "Warm but professional. Use active voice."
+    },
+    "punctuation": {
+      "zh": "全角标点：，。：…… 禁用感叹号",
+      "en": "Half-width punctuation: ,.:... Avoid exclamation marks"
+    },
+    "numbers": {
+      "currency": "¥{amount} with 2 decimal places",
+      "date_zh": "YYYY年M月D日",
+      "date_en": "Month D, YYYY",
+      "phone": "+86 21 XXXX XXXX"
+    },
+    "placeholders": {
+      "format": "camelCase: {couponName}, {discountAmount}",
+      "generic": "{n}=count, {amount}=money, {date}=date",
+      "spacing": "中文变量前后加空格，英文不加"
+    }
+  },
+  "terminology": {
+    "乐园": "Park",
+    "酒店": "Hotel",
+    "门票": "Ticket",
+    "优惠券": "Coupon",
+    "订单": "Order",
+    "游客": "Guest",
+    "预订": "Book/Booking",
+    "退款": "Refund",
+    "年卡": "Annual Pass",
+    "入住": "Check-in",
+    "退房": "Check-out",
+    "房型": "Room Type",
+    "房费": "Room Rate"
+  },
+  "forbiddenWords": {
+    "zh": ["最", "第一", "唯一", "国家级", "世界级", "顶级", "最佳", "最好", "最高", "极致", "极致体验", "绝对", "全网最低"],
+    "en": ["best ever", "number one", "guaranteed", "100%", "zero risk"]
+  },
+  "compliance": [
+    {
+      "ruleCode": "COMP-EXP-1.1",
+      "title": "国家/地区表述规范",
+      "severity": "HIGH",
+      "source": "网信办《网络信息内容生态治理规定》、市场监管总局广告法",
+      "rule": "下拉选择场景使用'国家及地区'，不使用'国家'；台湾/香港/澳门前加'中国'",
+      "stage": "全流程"
+    },
+    {
+      "ruleCode": "COMP-EXP-1.2",
+      "title": "广告法禁用词",
+      "severity": "HIGH",
+      "source": "《中华人民共和国广告法》第9条",
+      "rule": "禁用'最''第一''国家级'等绝对化用语和极限词",
+      "keywords": ["最", "第一", "唯一", "国家级", "世界级", "顶级", "最佳", "最好", "最高", "极致", "极致体验", "绝对", "极限词", "禁用词"],
+      "stage": "发布前"
+    },
+    {
+      "ruleCode": "COMP-EXP-1.3",
+      "title": "行业特殊规范",
+      "severity": "MEDIUM",
+      "source": "行业监管条例（银保监、药监局、教育部等）",
+      "rule": "金融不得承诺保本保收益；医疗不得承诺治愈率；教育不得承诺升学率",
+      "keywords": ["保本", "保收益", "高收益", "零风险", "治愈率", "根治", "包治", "升学率", "保过", "通过率"],
+      "stage": "发布前"
+    },
+    {
+      "ruleCode": "COMP-EXP-1.4",
+      "title": "跨境数据合规",
+      "severity": "MEDIUM",
+      "source": "《数据安全法》《个人信息保护法》（PIPL）",
+      "rule": "涉及个人信息或重要数据跨境传输需安全评估",
+      "keywords": ["跨境", "出境", "PII", "个人信息", "重要数据", "数据出境", "安全评估"],
+      "stage": "出境前"
+    },
+    {
+      "ruleCode": "COMP-EXP-2.1",
+      "title": "品牌视觉规范",
+      "severity": "HIGH",
+      "source": "企业内部品牌规范手册",
+      "rule": "Logo使用、色彩、字体、版式符合品牌指南",
+      "keywords": ["Logo", "品牌", "视觉规范", "色彩", "字体", "版式", "VI"],
+      "stage": "创作/发布前"
+    },
+    {
+      "ruleCode": "COMP-EXP-2.2",
+      "title": "版权素材检测",
+      "severity": "MEDIUM",
+      "source": "《著作权法》、第三方版权库",
+      "rule": "图片、字体、音乐、视频需授权或为原创",
+      "keywords": ["版权", "著作权", "授权", "原创", "素材", "盗用", "侵权"],
+      "stage": "创作/发布前"
+    },
+    {
+      "ruleCode": "COMP-EXP-2.3",
+      "title": "商标与商标名使用",
+      "severity": "MEDIUM",
+      "source": "《商标法》、企业商标库",
+      "rule": "正确使用注册商标®/™，不得侵犯第三方商标",
+      "keywords": ["商标", "注册商标", "®", "™", "商标名", "侵权", "冒用", "商标权"],
+      "stage": "发布前"
+    },
+    {
+      "ruleCode": "COMP-EXP-3.1",
+      "title": "敏感信息泄露防护",
+      "severity": "HIGH",
+      "source": "《网络安全法》《个人信息保护法》",
+      "rule": "文案中不得出现身份证号、手机号、银行卡号、密钥等真实敏感数据",
+      "keywords": ["身份证号", "手机号", "银行卡号", "密钥", "密码", "敏感信息", "泄露", "隐私"],
+      "stage": "全流程"
+    },
+    {
+      "ruleCode": "COMP-EXP-3.2",
+      "title": "内容安全过滤",
+      "severity": "HIGH",
+      "source": "网信办'清朗'专项行动要求",
+      "rule": "禁止暴恐、色情、违禁品、违法活动等不良信息",
+      "keywords": ["暴恐", "色情", "违禁品", "违法活动", "不良信息", "清朗", "内容安全", "违规内容"],
+      "stage": "发布前"
+    },
+    {
+      "ruleCode": "COMP-EXP-3.3",
+      "title": "隐私声明一致性",
+      "severity": "LOW",
+      "source": "GDPR、PIPL 透明度原则",
+      "rule": "文案中的数据使用描述需与隐私政策一致",
+      "keywords": ["隐私政策", "数据使用", "透明度", "GDPR", "PIPL", "隐私声明"],
+      "stage": "发布前"
+    },
+    {
+      "ruleCode": "COMP-EXP-4.1",
+      "title": "地域文化适配",
+      "severity": "MEDIUM",
+      "source": "本地化运营规范",
+      "rule": "内容需符合当地文化、宗教、习俗",
+      "keywords": ["文化", "宗教", "习俗", "斋月", "节日", "本地化", "文化敏感", "禁忌"],
+      "stage": "本地化阶段"
+    },
+    {
+      "ruleCode": "COMP-EXP-4.2",
+      "title": "渠道格式规范",
+      "severity": "LOW",
+      "source": "平台运营规则",
+      "rule": "各平台发布需遵循对应格式规范",
+      "keywords": ["平台规范", "微信", "抖音", "淘宝", "图片尺寸", "发布规范", "渠道"],
+      "stage": "渠道发布前"
+    },
+    {
+      "ruleCode": "COMP-EXP-4.3",
+      "title": "活动促销合规",
+      "severity": "MEDIUM",
+      "source": "《反不正当竞争法》《规范促销行为暂行规定》",
+      "rule": "促销规则需明确、抽奖需公正、不得误导用户",
+      "keywords": ["促销", "抽奖", "误导", "优惠", "折扣", "满减", "返现", "促销规则"],
+      "stage": "活动上线前"
+    },
+    {
+      "ruleCode": "COMP-EXP-5.1",
+      "title": "多部门审批流",
+      "severity": "HIGH",
+      "source": "企业内部控制制度",
+      "rule": "发布前须经法务、品牌、PR等必要部门审核",
+      "keywords": ["审批", "审核", "法务", "品牌", "PR", "合规审核", "内控"],
+      "stage": "发布前"
+    },
+    {
+      "ruleCode": "COMP-EXP-5.2",
+      "title": "版本与归档管理",
+      "severity": "LOW",
+      "source": "企业档案管理规范、审计要求",
+      "rule": "保留历史版本，按规定归档/销毁",
+      "keywords": ["版本", "归档", "销毁", "历史记录", "档案管理", "审计"],
+      "stage": "发布后"
+    }
+  ],
+  "sensitiveScenarios": {
+    "payment": {
+      "rules": ["明示币种和金额", "扣款前告知不可逆", "退款告知预计到账时间"],
+      "forbidden": ["暗示退款是赠送/奖励"]
+    },
+    "cancellation": {
+      "rules": ["明确告知扣费金额和原因", "提供'确认取消'和'我再想想'双向选择"]
+    },
+    "health_safety": {
+      "rules": ["使用'为了您的安全'而非'禁止'", "明确身高/年龄/健康要求"]
+    },
+    "minors": {
+      "rules": ["16岁以下用户提示监护人陪同", "不直接收集未成年人信息"]
+    },
+    "territory": {
+      "rules": ["使用'中国内地/中国大陆'", "台湾/香港/澳门前加'中国'"],
+      "nationality_region": "下拉选择场景使用'国家及地区'，不使用'国家'"
+    }
+  }
+}

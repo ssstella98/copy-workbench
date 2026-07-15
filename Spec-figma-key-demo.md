@@ -19,7 +19,7 @@
 
 - 单文件 HTML + Vanilla JS
 - 浏览器本地存储：localStorage（项目列表）+ IndexedDB（Figma 数据 + Key 数据 + 文案数据）
-- 外部 API：Figma REST API、DeepSeek API（AI 翻译 + AI 写文案）
+- 外部 API：Figma REST API、混元 API（AI 翻译 + AI 写文案）
 - 规则配置：`Key Rules/key-rules-config.json`（Key 生成）、`Copy Parking-lot/copy-rules.json`（文案规范）
 - Claude Code Skills：`generate-key`、`copywriting`
 
@@ -207,7 +207,7 @@
 
 交互：
 1. 填写/修改 Layer 3 提示词
-2. 点击「🪄 生成文案」→ 调用 DeepSeek API（基于 copywriting skill 规则 + 三层 prompt）
+2. 点击「🪄 生成文案」→ 调用 混元 API（基于 copywriting skill 规则 + 三层 prompt）
 3. AI 返回中/英文案 → 展示在结果输入框（可手动修改）
 4. 同步展示合规检查结果
 5. 点击「✅ 确认并填入表格」→ 文案写入表格，关闭弹窗
@@ -344,20 +344,20 @@
 
 ### 9.1 AI 翻译（Key Generator Tab）
 
-- 服务：DeepSeek API（`deepseek-chat`）
+- 服务：混元 API（`hunyuan-turbo`）
 - 用途：批量翻译未匹配的中文 Figma 文案为英文 Title
 - 触发：手动点击「🤖 AI 翻译」
 
 ### 9.2 AI 写文案（Copywriting Tab）
 
-- 服务：DeepSeek API（`deepseek-chat`）
+- 服务：混元 API（`hunyuan-turbo`）
 - 用途：基于三层 Prompt + 文案规范 + 合规规则，生成中/英文案
 - 触发：每行 🤖 按钮（单条）或顶部「🤖 AI 批量生成」（批量）
 - 规则来源：`.claude/skills/copywriting.md` + `copy-rules.json`
 
 ### 9.3 AI 合规审查
 
-- 服务：DeepSeek API
+- 服务：混元 API
 - 用途：检查已填写文案是否符合 15 条合规规则
 - 触发：顶部「🔍 AI 合规审查」
 
@@ -423,7 +423,7 @@ Producer Flow/
 | 2 | 无用户认证 | 后端 + 账号系统 |
 | 3 | 数据仅限当前浏览器 | 后端数据库同步 |
 | 4 | Module 检测依赖关键词 | 项目内自定义规则 |
-| 5 | AI 翻译依赖 DeepSeek API | 后端代理，支持多模型 |
+| 5 | AI 翻译依赖 混元 API | 后端代理，支持多模型 |
 | 6 | Layer 2/3 Prompt 存储在 IndexedDB | 后端持久化 + 团队共享 |
 
 ---

@@ -603,11 +603,11 @@ function esc(str) {
 }
 
 // ============================================================
-// AI TRANSLATION (DeepSeek API, OpenAI-compatible)
+// AI TRANSLATION (腾讯混元 API, OpenAI-compatible)
 // ============================================================
 async function batchAITranslate() {
   const apiKey = document.getElementById('aiApiKey')?.value?.trim();
-  if (!apiKey) { showToast('请在工具栏填写 DeepSeek API Key'); return; }
+  if (!apiKey) { showToast('请在工具栏填写混元 API Key'); return; }
 
   // Collect fields with empty title
   const toTranslate = [];
@@ -633,14 +633,14 @@ async function batchAITranslate() {
     const inputs = batch.map(f => f.text);
 
     try {
-      const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      const resp = await fetch('https://api.hunyuan.cloud.tencent.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: 'hunyuan-turbo',
           max_tokens: 300,
           temperature: 0.1,
           messages: [{
@@ -1122,7 +1122,7 @@ function renderLayer1Row() {
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
       <button class="btn sm" style="color:var(--amber);border-color:#fde68a;" onclick="batchAICompliance()">🔍 AI 合规审查</button>
-      <input type="password" id="copyAiKey" placeholder="DeepSeek Key" style="width:130px;font-size:9px;padding:3px 6px;border:1px solid var(--border);border-radius:3px;" value="${esc(WS.aiKey || '')}">
+      <input type="password" id="copyAiKey" placeholder="混元 API Key" style="width:130px;font-size:9px;padding:3px 6px;border:1px solid var(--border);border-radius:3px;" value="${esc(WS.aiKey || '')}">
     </div>
   </div>`;
 }
@@ -1321,7 +1321,7 @@ async function generateAICopy() {
   const f = frame.fields[fieldIdx];
   if (!f) return;
   const apiKey = document.getElementById('copyAiKey')?.value?.trim() || WS.aiKey;
-  if (!apiKey) { showToast('请填写 DeepSeek API Key'); return; }
+  if (!apiKey) { showToast('请填写混元 API Key'); return; }
 
   // Save hint
   const hintKey = `${frame.id}_${fieldIdx}`;
@@ -1341,11 +1341,11 @@ async function generateAICopy() {
   document.getElementById('aiPopupResult').style.display = 'flex';
 
   try {
-    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    const resp = await fetch('https://api.hunyuan.cloud.tencent.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'deepseek-chat', max_tokens: 300, temperature: 0.3,
+        model: 'hunyuan-turbo', max_tokens: 300, temperature: 0.3,
         messages: [{ role: 'user', content: `You are a UI copywriter for Shanghai Disney Resort digital products.
 Project context: ${layer1}
 User flow: ${layer2}
@@ -1424,7 +1424,7 @@ async function batchAICopy() {
   saveLayer2Input();
   const apiKey = document.getElementById('copyAiKey')?.value?.trim() || WS.aiKey;
   console.log('[batchAICopy] apiKey:', apiKey ? 'present' : 'missing');
-  if (!apiKey) { showToast('请填写 DeepSeek API Key'); return; }
+  if (!apiKey) { showToast('请填写混元 API Key'); return; }
   // Collect non-hidden fields from current frame that are missing enUS
   const frame = WS.frames[WS.currentFrameIdx];
   if (!frame) { showToast('当前页面无数据'); return; }
@@ -1451,11 +1451,11 @@ async function batchAICopy() {
     const hintKey = `${item.frame.id}_${item.fieldIdx}`;
     const layer3 = (WS.layer3Hints || {})[hintKey] || '';
     try {
-      const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      const resp = await fetch('https://api.hunyuan.cloud.tencent.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: 'deepseek-chat', max_tokens: 200, temperature: 0.3,
+          model: 'hunyuan-turbo', max_tokens: 200, temperature: 0.3,
           messages: [{ role: 'user', content: `UI copy for Shanghai Disney Resort.
 Context: ${WS.layer1Prompt || ''}
 Flow: ${(WS.layer2Prompts||{})[canvas] || ''}
@@ -1493,7 +1493,7 @@ Return ONLY JSON: {"zhCN":"...","enUS":"..."}` }]
 async function batchAICompliance() {
   saveLayer2Input();
   const apiKey = document.getElementById('copyAiKey')?.value?.trim() || WS.aiKey;
-  if (!apiKey) { showToast('请填写 DeepSeek API Key'); return; }
+  if (!apiKey) { showToast('请填写混元 API Key'); return; }
   const frame = WS.frames[WS.currentFrameIdx];
   if (!frame) return;
   const fields = frame.fields.filter(f => !f.hidden && (f.zhCN || f.enUS));
@@ -1505,11 +1505,11 @@ async function batchAICompliance() {
 
   try {
     const items = fields.map(f => `Key: ${buildKey(f, WS.domain)}\nZH: ${f.zhCN||''}\nEN: ${f.enUS||''}`).join('\n---\n');
-    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    const resp = await fetch('https://api.hunyuan.cloud.tencent.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'deepseek-chat', max_tokens: 500, temperature: 0,
+        model: 'hunyuan-turbo', max_tokens: 500, temperature: 0,
         messages: [{ role: 'user', content: `Review these UI copy strings for compliance. Check:
 1. 广告法禁用词 (最/第一/唯一/国家级/顶级/极致/绝对)
 2. 国家及地区表述 (下拉用"国家及地区"非"国家", 台港澳前加"中国")
@@ -1604,7 +1604,7 @@ function renderToolbarContent() {
   html += `<button class="btn sm" onclick="exportCSV()" ${WS.frames.length === 0 ? 'disabled' : ''}>📥 CSV</button>`;
   html += `<button class="btn sm primary" onclick="exportVisualDoc()" ${WS.frames.length === 0 ? 'disabled' : ''}>📄 视觉文档</button>`;
   html += `<span style="font-size:11px;color:var(--text3);">|</span>`;
-  html += `<input type="password" id="aiApiKey" placeholder="DeepSeek API Key" style="width:160px;font-size:11px;" value="${esc(WS.aiKey || '')}">`;
+  html += `<input type="password" id="aiApiKey" placeholder="混元 API Key" style="width:160px;font-size:11px;" value="${esc(WS.aiKey || '')}">`;
   html += `<button class="btn sm primary" onclick="batchAITranslate()" ${WS.frames.length === 0 ? 'disabled' : ''}>🤖 AI 翻译</button>`;
   html += `<span class="status"><span class="status-dot ${WS.statusType}"></span> ${WS.status || ''}</span>`;
   return html;

@@ -43,7 +43,7 @@
   - Layer 3: 字段级提示（每行 🤖 按钮打开弹窗填写）
 - 文案编辑表格：`# | Key Name | 💬 | 🇨🇳中文 | 🇺🇸English | ✓合规 | 🤖`
 - 每行 🤖 → 弹窗：填提示 → 🪄 生成 → 预览中/英 + 即时合规检查 → ✅ 填入
-- 🤖 批量生成：遍历所有有 Layer 3 提示的字段，逐条调 DeepSeek API
+- 🤖 批量生成：遍历所有有 Layer 3 提示的字段，逐条调 混元 API
 - 🔍 合规审查：审查当前页所有文案，分 ✅/⚠/✗，弹窗展示详情
 - Layer 1/2/3 prompts 随保存写入 IndexedDB
 
@@ -80,7 +80,7 @@ cd "/Users/stella98/Desktop/达贡族/迪士尼/Producer Flow"
 python3 -m http.server 8080
 # 浏览器打开 http://localhost:8080/figma-key-demo.html
 ```
-**绝对不能**用 `file://` 协议打开——CORS 会拦截 Figma API 和 DeepSeek API 调用。
+**绝对不能**用 `file://` 协议打开——CORS 会拦截 Figma API 和 混元 API 调用。
 
 ---
 
@@ -108,7 +108,7 @@ python3 -m http.server 8080
 
 ## 绝对不要踩的坑
 
-1. **不要用 `file://` 打开 HTML** → Figma API 和 DeepSeek API 都会被 CORS 拦截。必须用 `localhost` 访问。
+1. **不要用 `file://` 打开 HTML** → Figma API 和 混元 API 都会被 CORS 拦截。必须用 `localhost` 访问。
 
 2. **不要一次传太多 Figma image ID** → `/v1/images` 端点 URL 长度有限制，超过 20 个 ID 会 400。已改成分块 20 个 + 间隔 1.5s。
 
@@ -122,7 +122,7 @@ python3 -m http.server 8080
 
 7. **不要修改 `key-rules-config.json` 的结构而不更新 fallback** → demo 启动时 fetch JSON，失败则用 `FALLBACK_TITLE_MAP` 和 `FALLBACK_MODULE_KEYWORDS`。改 JSON schema 时记得同步更新 fallback。
 
-8. **DeepSeek API 格式** → 用的是 OpenAI 兼容格式（`/v1/chat/completions`），`Authorization: Bearer <key>`，响应在 `data.choices[0].message.content`。
+8. **混元 API 格式** → 用的是 OpenAI 兼容格式（`/v1/chat/completions`），`Authorization: Bearer <key>`，响应在 `data.choices[0].message.content`。
 
 9. **Copywriting Tab 的 Layer 2 切换** → 切换 Frame 或 CANVAS 时，必须先 `saveLayer2Input()` 保存当前 textarea 值到 `WS.layer2Prompts[canvasName]`，再切换。否则数据丢失。
 

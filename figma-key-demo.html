@@ -348,6 +348,11 @@
 
 <script>
 // ============================================================
+// CONFIG
+// ============================================================
+const HUNYUAN_API = '/api/hunyuan/v1/chat/completions';
+
+// ============================================================
 // PERSISTENCE: localStorage (project list) + IndexedDB (data)
 // ============================================================
 const LS_KEY = 'cw_projects';
@@ -633,7 +638,7 @@ async function batchAITranslate() {
     const inputs = batch.map(f => f.text);
 
     try {
-      const resp = await fetch('https://api.hunyuan.cloud.tencent.com/v1/chat/completions', {
+      const resp = await fetch(HUNYUAN_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1341,7 +1346,7 @@ async function generateAICopy() {
   document.getElementById('aiPopupResult').style.display = 'flex';
 
   try {
-    const resp = await fetch('https://api.hunyuan.cloud.tencent.com/v1/chat/completions', {
+    const resp = await fetch(HUNYUAN_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -1451,7 +1456,7 @@ async function batchAICopy() {
     const hintKey = `${item.frame.id}_${item.fieldIdx}`;
     const layer3 = (WS.layer3Hints || {})[hintKey] || '';
     try {
-      const resp = await fetch('https://api.hunyuan.cloud.tencent.com/v1/chat/completions', {
+      const resp = await fetch(HUNYUAN_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         body: JSON.stringify({
@@ -1510,7 +1515,7 @@ async function batchAICompliance() {
 
   try {
     const items = fields.map(f => `Key: ${buildKey(f, WS.domain)}\nZH: ${f.zhCN||''}\nEN: ${f.enUS||''}`).join('\n---\n');
-    const resp = await fetch('https://api.hunyuan.cloud.tencent.com/v1/chat/completions', {
+    const resp = await fetch(HUNYUAN_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({

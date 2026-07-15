@@ -77,10 +77,11 @@
 **启动方式：**
 ```bash
 cd "/Users/stella98/Desktop/达贡族/迪士尼/Producer Flow"
-python3 -m http.server 8080
+python3 server.py
 # 浏览器打开 http://localhost:8080/figma-key-demo.html
 ```
-**绝对不能**用 `file://` 协议打开——CORS 会拦截 Figma API 和 混元 API 调用。
+> `server.py` 同时提供静态文件服务 + 混元 API 代理（解决浏览器 CORS 限制）。
+> 混元 API 调用走 `/api/hunyuan/*` → `https://api.hunyuan.cloud.tencent.com/*`。
 
 ---
 

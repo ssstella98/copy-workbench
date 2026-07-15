@@ -1486,7 +1486,12 @@ Return ONLY JSON: {"zhCN":"...","enUS":"..."}` }]
     }
   }
   showToast(`批量完成 · ${done} 条`);
+  // Uncheck filter so user sees all filled content
+  const onlyEmptyCb = document.getElementById('copyShowEmpty');
+  if (onlyEmptyCb) onlyEmptyCb.checked = false;
   render();
+  // Auto-save
+  await saveCurrentProject();
 }
 
 // ---- AI Compliance ----

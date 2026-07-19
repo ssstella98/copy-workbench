@@ -11,3 +11,4 @@ figma-response.json
 # Node / dependencies (future)
 node_modules/
 终端存储的输出.txt
+.wrangler/

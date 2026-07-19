@@ -5,7 +5,7 @@ compatibility_date = "2025-07-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "copy-workbench-db"
-database_id = ""  # Fill after `wrangler d1 create copy-workbench-db`
+database_id = "39deaca5-a501-469b-a6c8-e89ab8a3ec9d"  # Fill after `wrangler d1 create copy-workbench-db`
 
 [vars]
 # Set via `wrangler secret put AUTH_TOKEN` (production)

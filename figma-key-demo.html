@@ -398,7 +398,10 @@
 // ============================================================
 // CONFIG
 // ============================================================
-const HUNYUAN_API = '/api/hunyuan/v1/chat/completions';
+// When running via localhost, use the proxy; otherwise use the full URL (may hit CORS)
+const HUNYUAN_API = (location.protocol === 'file:' || location.hostname !== 'localhost')
+  ? 'https://api.hunyuan.cloud.tencent.com/v1/chat/completions'
+  : '/api/hunyuan/v1/chat/completions';
 
 // ============================================================
 // PERSISTENCE: localStorage (project list) + IndexedDB (data)
@@ -1096,7 +1099,7 @@ function renderKeyTablePanelHTML() {
           <button class="btn sm" id="btnSelectMode" onclick="toggleBatchSelect()" style="font-size:10px;">☐ 全选字段</button>
           <button class="btn sm danger" id="btnBatchHide" onclick="batchHideSelected()" style="font-size:10px;display:none;">隐藏选中 (0)</button>
           <label><input type="checkbox" id="showHidden" onchange="renderKeyTable()"> 显示已隐藏</label>
-          <button class="btn sm" onclick="unhideAll()" style="font-size:10px;">取消隐藏</button>
+
           <button class="btn sm danger" onclick="deleteHidden()" style="font-size:10px;">删除已隐藏</button>
         </div>
       </div>
@@ -1159,7 +1162,7 @@ function renderCopywritingTab() {
     <span style="font-weight:600;">✏️ Copywriting</span> · ${totalFields} fields · ${emptyEn} 未完成
     <span id="wsStatus" style="font-size:10px;color:var(--blue);margin-left:8px;"></span>
     <span style="flex:1;"></span>
-    <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;"><input type="checkbox" id="copyShowEmpty" onchange="renderCopyTable()" checked> 仅显示未完成</label>
+    <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:10px;"><input type="checkbox" id="copyShowEmpty" onchange="renderCopyTable()"> 仅显示未完成</label>
     <button class="btn sm" onclick="saveCopywriting()">💾 保存文案</button>
   </div>`;
   // Three-column workspace

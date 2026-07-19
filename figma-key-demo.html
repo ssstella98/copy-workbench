@@ -396,18 +396,50 @@
 
 <script>
 // ============================================================
-// CONFIG
+// CONFIG — API endpoints
 // ============================================================
-// CONFIG — Hunyuan API endpoint
-// ============================================================
-// Priority: 1) WS.hunyuanProxy  2) ?proxy= URL param  3) localhost proxy  4) direct
+// Set API_BASE to your Cloudflare Worker URL for cloud persistence
+// Priority: 1) WS.apiBase  2) ?api= URL param  3) localhost proxy  4) direct
+function getApiBase() {
+  if (WS.apiBase) return WS.apiBase;
+  const urlApi = new URLSearchParams(location.search).get('api');
+  if (urlApi) return urlApi;
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    return '';
+  return ''; // no backend = use local storage
+}
+
+// Hunyuan API: route through Worker proxy when API_BASE is set
 function getHunyuanAPI() {
+  const base = getApiBase();
+  if (base) return base + '/api/proxy/hunyuan';
   if (WS.hunyuanProxy) return WS.hunyuanProxy + '/api/hunyuan/v1/chat/completions';
   const urlProxy = new URLSearchParams(location.search).get('proxy');
   if (urlProxy) return urlProxy + '/api/hunyuan/v1/chat/completions';
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
     return '/api/hunyuan/v1/chat/completions';
   return 'https://api.hunyuan.cloud.tencent.com/v1/chat/completions';
+}
+
+// Universal Hunyuan call — handles both direct API and Worker proxy
+async function callHunyuan(apiKey, model, messages, maxTokens = 300, temperature = 0.3) {
+  const base = getApiBase();
+  if (base) {
+    // Route through Worker proxy
+    const resp = await fetch(base + '/api/proxy/hunyuan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey, model, messages, max_tokens: maxTokens, temperature })
+    });
+    return resp.json();
+  }
+  // Direct API call
+  const resp = await fetch(getHunyuanAPI(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature })
+  });
+  return resp.json();
 }
 
 // ============================================================
@@ -939,6 +971,7 @@ let WS = {
   layer1Prompt: '', layer2Prompts: {}, layer3Hints: {}, _compliance: {},
   batchSelectMode: false, selectedFields: new Set(),
   hunyuanProxy: '',
+  apiBase: '',
 };
 
 function wsReset() {
@@ -948,7 +981,7 @@ function wsReset() {
     aiKey: '', activeTab: 'keys', copySaved: false,
     layer1Prompt: '', layer2Prompts: {}, layer3Hints: {}, _compliance: {},
     batchSelectMode: false, selectedFields: new Set(),
-    hunyuanProxy: '' };
+    hunyuanProxy: '', apiBase: '' };
 }
 
 let EDITING_PROJECT_ID = null; // for edit modal
@@ -1681,6 +1714,7 @@ function renderToolbarContent() {
   html += `<button class="btn sm primary" onclick="exportVisualDoc()" ${WS.frames.length === 0 ? 'disabled' : ''}>📄 视觉文档</button>`;
   html += `<span style="font-size:11px;color:var(--text3);">|</span>`;
   html += `<input type="password" id="aiApiKey" placeholder="混元 API Key" style="width:160px;font-size:11px;" value="${esc(WS.aiKey || '')}">`;
+  html += `<input type="text" id="apiBaseInput" placeholder="Worker URL (可选)" style="width:160px;font-size:10px;" value="${esc(WS.apiBase || '')}" onchange="WS.apiBase=this.value">`;
   html += `<input type="text" id="hunyuanProxyInput" placeholder="API 代理地址 (可选)" style="width:160px;font-size:10px;" value="${esc(WS.hunyuanProxy || '')}" onchange="WS.hunyuanProxy=this.value">`;
   html += `<button class="btn sm primary" onclick="batchAITranslate()" ${WS.frames.length === 0 ? 'disabled' : ''}>🤖 AI 翻译</button>`;
   html += `<span class="status"><span class="status-dot ${WS.statusType}"></span> ${WS.status || ''}</span>`;

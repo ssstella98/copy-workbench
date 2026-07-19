@@ -1,0 +1,15 @@
+{
+  "name": "copy-workbench-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "db:migrate": "wrangler d1 execute copy-workbench-db --file=./migrations/0001_init.sql",
+    "db:migrate:local": "wrangler d1 execute copy-workbench-db --local --file=./migrations/0001_init.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

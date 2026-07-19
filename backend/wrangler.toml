@@ -1,0 +1,12 @@
+name = "copy-workbench-api"
+main = "src/index.js"
+compatibility_date = "2025-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "copy-workbench-db"
+database_id = ""  # Fill after `wrangler d1 create copy-workbench-db`
+
+[vars]
+# Set via `wrangler secret put AUTH_TOKEN` (production)
+AUTH_TOKEN = "dev-token-change-in-production"

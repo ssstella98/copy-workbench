@@ -194,6 +194,18 @@
   .hide-btn { cursor: pointer; font-size: 14px; color: var(--text3); padding: 2px 4px; border: none; background: none; }
   .hide-btn:hover { color: var(--red); }
 
+  /* Row selection & actions */
+  tr.row-selected td { background: #eff6ff !important; }
+  tr.row-selected.row-hidden td { background: #e8f0fe !important; opacity: .65; }
+  .sel-cb { width: 14px; height: 14px; cursor: pointer; accent-color: var(--blue); }
+  .op-btn { cursor: pointer; font-size: 10px; padding: 2px 6px; border: 1px solid var(--border); border-radius: 3px; background: #fff; color: var(--text2); white-space: nowrap; }
+  .op-btn:hover { background: var(--blue-bg); color: var(--blue); border-color: var(--blue); }
+  .op-btn.restore { color: var(--green); border-color: #bbf7d0; }
+  .op-btn.restore:hover { background: #f0fdf4; }
+
+  /* Highlight overlay multi-number badge */
+  .highlight-overlay .hl-num.multi { width: auto; padding: 0 5px; border-radius: 8px; }
+
   /* Tab buttons */
   .tab-btn {
     padding: 6px 16px; border: none; background: transparent;
@@ -320,6 +332,42 @@
   <div class="modal" style="width:480px;max-width:94%;">
     <h4>🔍 AI 合规审查</h4>
     <div id="compResultContent"></div>
+  </div>
+</div>
+
+<!-- New Key Modal -->
+<div class="modal-overlay" id="newKeyModal">
+  <div class="modal" style="width:800px;max-width:95%;max-height:85vh;display:flex;flex-direction:column;">
+    <h4 style="margin-bottom:12px;">➕ 新建 Key</h4>
+    <div style="display:flex;gap:16px;flex:1;min-height:0;">
+      <!-- Left: Screenshot with selection -->
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0;">
+        <label style="font-size:10px;font-weight:600;color:var(--text2);">📱 在截图上拖拽框选位置</label>
+        <div id="nkCanvasWrap" style="position:relative;overflow:auto;background:#fafbfc;border:1px solid var(--border);border-radius:6px;flex:1;min-height:300px;cursor:crosshair;">
+          <div style="position:relative;display:inline-block;line-height:0;min-width:100%;" id="nkImgContainer">
+            <img id="nkPreviewImg" src="" style="width:100%;display:block;" alt="Frame preview" draggable="false">
+            <div id="nkSelection" style="display:none;position:absolute;border:2px dashed var(--red);background:rgba(220,38,38,.08);border-radius:2px;pointer-events:none;z-index:2;"></div>
+          </div>
+        </div>
+        <span style="font-size:10px;color:var(--text3);" id="nkPosInfo">未选择区域 — 在截图上拖拽以框选位置</span>
+      </div>
+      <!-- Right: Form -->
+      <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
+        <div class="form-group"><label>Domain</label><input type="text" id="nkDomain" readonly style="background:#f9fafb;"></div>
+        <div class="form-group"><label>Page</label><input type="text" id="nkPage" placeholder="e.g. HomePage"></div>
+        <div class="form-group"><label>Module</label>
+          <select id="nkModule"><option value="">-- 待选 --</option></select>
+          <input type="text" id="nkModuleCustom" placeholder="自定义 module" style="margin-top:3px;font-size:10px;">
+        </div>
+        <div class="form-group"><label>Title</label><input type="text" id="nkTitle" placeholder="e.g. ConfirmButton"></div>
+        <div class="form-group"><label>Body (可选)</label><input type="text" id="nkBody" placeholder="可选后缀"></div>
+        <div style="flex:1;"></div>
+        <div class="modal-actions" style="margin-top:0;">
+          <button class="btn sm" onclick="hideModal('newKeyModal')">取消</button>
+          <button class="btn primary sm" onclick="saveNewKey()">✅ 创建 Key</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -879,6 +927,7 @@ let WS = {
   pickerOpen: false, sidebarCollapsed: false,
   aiKey: '', activeTab: 'keys', copySaved: false,
   layer1Prompt: '', layer2Prompts: {}, layer3Hints: {}, _compliance: {},
+  batchSelectMode: false, selectedFields: new Set(),
 };
 
 function wsReset() {
@@ -886,7 +935,8 @@ function wsReset() {
     frameImages: {}, frames: [], allFrameMetas: [], currentFrameIdx: 0,
     status: '', statusType: '', pickerOpen: false, sidebarCollapsed: false,
     aiKey: '', activeTab: 'keys', copySaved: false,
-    layer1Prompt: '', layer2Prompts: {}, layer3Hints: {}, _compliance: {} };
+    layer1Prompt: '', layer2Prompts: {}, layer3Hints: {}, _compliance: {},
+    batchSelectMode: false, selectedFields: new Set() };
 }
 
 let EDITING_PROJECT_ID = null; // for edit modal
@@ -1042,6 +1092,9 @@ function renderKeyTablePanelHTML() {
       <div class="keys-header">
         <span>🔑 Key 列表 <span style="font-size:10px;color:var(--text2);" id="fieldCount"></span></span>
         <div class="filter-bar">
+          <button class="btn sm primary" onclick="openNewKeyModal()" style="font-size:10px;">➕ 新建key</button>
+          <button class="btn sm" id="btnSelectMode" onclick="toggleBatchSelect()" style="font-size:10px;">☐ 全选字段</button>
+          <button class="btn sm danger" id="btnBatchHide" onclick="batchHideSelected()" style="font-size:10px;display:none;">隐藏选中 (0)</button>
           <label><input type="checkbox" id="showHidden" onchange="renderKeyTable()"> 显示已隐藏</label>
           <button class="btn sm" onclick="unhideAll()" style="font-size:10px;">取消隐藏</button>
           <button class="btn sm danger" onclick="deleteHidden()" style="font-size:10px;">删除已隐藏</button>
@@ -1050,11 +1103,11 @@ function renderKeyTablePanelHTML() {
       <div class="keys-table-wrap">
         <table>
           <thead><tr>
-            <th style="width:26px;">#</th><th style="width:30px;"></th>
+            <th style="width:26px;">#</th><th id="thBatchCheck" style="width:26px;display:none;cursor:pointer;" onclick="toggleSelectAll(document.getElementById('selectAllCheckbox')?.checked ? false : true)"><input type="checkbox" id="selectAllCheckbox" style="width:13px;height:13px;cursor:pointer;" onclick="event.stopPropagation();toggleSelectAll(this.checked)"></th>
             <th style="width:110px;">Figma 草稿</th><th style="width:55px;">Domain</th>
             <th style="width:75px;">Page</th><th style="width:85px;">Module</th>
             <th style="width:85px;">Title</th><th style="width:50px;">Body</th>
-            <th>Full Key</th>
+            <th>Full Key</th><th style="width:72px;">操作</th>
           </tr></thead>
           <tbody id="keyTableBody"></tbody>
         </table>
@@ -1791,11 +1844,20 @@ function renderPreviewContent() {
   const visibleFields = frame.fields.filter(f => !f.hidden);
 
   if (imgUrl) {
-    const overlaysHTML = visibleFields.map((f) => {
-      const realIdx = frame.fields.indexOf(f);
-      return `<div class="highlight-overlay" data-field="${realIdx}"
+    // Group fields by position to avoid duplicate overlays
+    const posGroups = new Map();
+    for (const f of visibleFields) {
+      const pk = `${f.relX.toFixed(4)}_${f.relY.toFixed(4)}_${f.relW.toFixed(4)}_${f.relH.toFixed(4)}`;
+      if (!posGroups.has(pk)) posGroups.set(pk, []);
+      posGroups.get(pk).push(frame.fields.indexOf(f));
+    }
+    const overlaysHTML = Array.from(posGroups.entries()).map(([pk, indices]) => {
+      const f = frame.fields[indices[0]];
+      const nums = indices.map(i => i + 1).join(',');
+      const multi = indices.length > 1 ? ' multi' : '';
+      return `<div class="highlight-overlay" data-fields="${indices.join(',')}"
         style="left:${(f.relX*100).toFixed(2)}%;top:${(f.relY*100).toFixed(2)}%;width:${Math.max(f.relW*100,1).toFixed(2)}%;height:${Math.max(f.relH*100,0.5).toFixed(2)}%;">
-        <div class="hl-num">${realIdx+1}</div></div>`;
+        <div class="hl-num${multi}">${nums}</div></div>`;
     }).join('');
 
     body.innerHTML = `
@@ -1823,8 +1885,12 @@ function renderKeyTable() {
   const frame = WS.frames[WS.currentFrameIdx];
   const showHidden = document.getElementById('showHidden')?.checked || false;
 
+  // Show/hide batch select header
+  const thBatch = document.getElementById('thBatchCheck');
+  if (thBatch) thBatch.style.display = WS.batchSelectMode ? '' : 'none';
+
   if (!frame || frame.fields.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:48px;">当前页面无字段</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:48px;">当前页面无字段</td></tr>';
     const fc = document.getElementById('fieldCount');
     if (fc) fc.textContent = '0 fields';
     return;
@@ -1839,11 +1905,15 @@ function renderKeyTable() {
     const key = buildKey(f, WS.domain);
     const modOpts = MODULE_ENUMS.map(m => `<option value="${m}" ${f.module===m?'selected':''}>${m}</option>`).join('');
     const modCustom = f.module && !MODULE_ENUMS.includes(f.module) ? `<option value="${f.module}" selected>${f.module}</option>` : '';
+    const isSelected = WS.batchSelectMode && WS.selectedFields.has(realIdx);
+    const isHidden = f.hidden;
     return `
-      <tr class="${f.hidden ? 'row-hidden' : ''}" data-field-idx="${realIdx}"
+      <tr class="${isHidden ? 'row-hidden' : ''} ${isSelected ? 'row-selected' : ''}" data-field-idx="${realIdx}"
           onmouseenter="highlightField(${realIdx},true)" onmouseleave="highlightField(${realIdx},false)">
         <td style="color:var(--text3);">${realIdx+1}</td>
-        <td><button class="hide-btn" title="${f.hidden?'取消隐藏':'隐藏'}" onclick="toggleHide(${realIdx})">${f.hidden?'👁':'🚫'}</button></td>
+        <td class="batch-check-cell" style="${WS.batchSelectMode ? '' : 'display:none;'}">
+          ${WS.batchSelectMode ? `<input type="checkbox" class="sel-cb" ${isSelected ? 'checked' : ''} onchange="toggleFieldSelect(${realIdx},this.checked)" onclick="event.stopPropagation()">` : ''}
+        </td>
         <td class="td-figma" title="${esc(f.text)}">${esc(f.text)}</td>
         <td><span class="tag blue">${esc(WS.domain)}</span></td>
         <td><input type="text" value="${esc(f.page)}" onchange="updateField(${realIdx},'page',this.value)"></td>
@@ -1857,6 +1927,10 @@ function renderKeyTable() {
         <td><input type="text" value="${esc(f.title)}" onchange="updateField(${realIdx},'title',this.value)"></td>
         <td><input type="text" value="${esc(f.body||'')}" onchange="updateField(${realIdx},'body',this.value)" placeholder="可选"></td>
         <td class="td-key" title="${esc(key)}">${key || '<span style="color:#9ca3af;">待完善...</span>'}</td>
+        <td style="white-space:nowrap;">
+          <button class="op-btn${isHidden ? ' restore' : ''}" onclick="toggleHide(${realIdx})">${isHidden ? '恢复' : '隐藏'}</button>
+          <button class="op-btn" onclick="duplicateField(${realIdx})" title="复制此key">复制</button>
+        </td>
       </tr>`;
   }).join('');
 }
@@ -1865,10 +1939,26 @@ function renderKeyTable() {
 // INTERACTIONS
 // ============================================================
 function highlightField(idx, active) {
-  const overlay = document.querySelector(`.highlight-overlay[data-field="${idx}"]`);
-  if (overlay) { overlay.classList.toggle('active', active); }
-  const row = document.querySelector(`tr[data-field-idx="${idx}"]`);
-  if (row) { row.classList.toggle('row-hover', active); }
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame || !frame.fields[idx]) return;
+  const f = frame.fields[idx];
+  // Find all fields at the same position
+  const posKey = `${f.relX.toFixed(4)}_${f.relY.toFixed(4)}_${f.relW.toFixed(4)}_${f.relH.toFixed(4)}`;
+  const siblingIndices = [];
+  for (let i = 0; i < frame.fields.length; i++) {
+    const fi = frame.fields[i];
+    const pk = `${fi.relX.toFixed(4)}_${fi.relY.toFixed(4)}_${fi.relW.toFixed(4)}_${fi.relH.toFixed(4)}`;
+    if (pk === posKey) siblingIndices.push(i);
+  }
+  // Highlight overlay (find by any sibling index in data-fields)
+  const searchIdx = siblingIndices[0];
+  const overlay = document.querySelector(`.highlight-overlay[data-fields*="${searchIdx}"]`);
+  if (overlay) overlay.classList.toggle('active', active);
+  // Highlight all sibling table rows
+  for (const si of siblingIndices) {
+    const row = document.querySelector(`tr[data-field-idx="${si}"]`);
+    if (row) row.classList.toggle('row-hover', active);
+  }
 }
 
 function updateField(idx, prop, value) {
@@ -1886,6 +1976,106 @@ function toggleHide(idx) {
   renderKeyTable();
 }
 
+// ---- Duplicate Key ----
+function duplicateField(idx) {
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  const original = frame.fields[idx];
+  const clone = JSON.parse(JSON.stringify(original));
+  clone._aiGenerated = false;
+  frame.fields.splice(idx + 1, 0, clone);
+  renderPreviewContent();
+  renderKeyTable();
+  showToast('已复制字段');
+}
+
+// ---- Batch Select ----
+function toggleBatchSelect() {
+  WS.batchSelectMode = !WS.batchSelectMode;
+  if (!WS.batchSelectMode) WS.selectedFields = new Set();
+  updateBatchSelectButton();
+  renderKeyTable();
+}
+
+function updateBatchSelectButton() {
+  const btn = document.getElementById('btnSelectMode');
+  const hideBtn = document.getElementById('btnBatchHide');
+  if (!btn) return;
+  if (WS.batchSelectMode) {
+    btn.textContent = '取消选择';
+    btn.className = 'btn sm';
+    if (hideBtn) hideBtn.style.display = '';
+    updateBatchHideButton();
+  } else {
+    btn.textContent = '☐ 全选字段';
+    btn.className = 'btn sm';
+    if (hideBtn) hideBtn.style.display = 'none';
+    // Reset select-all checkbox
+    const selAll = document.getElementById('selectAllCheckbox');
+    if (selAll) selAll.checked = false;
+  }
+}
+
+function toggleFieldSelect(idx, checked) {
+  if (checked) { WS.selectedFields.add(idx); }
+  else { WS.selectedFields.delete(idx); }
+  updateBatchHideButton();
+  const row = document.querySelector(`tr[data-field-idx="${idx}"]`);
+  if (row) row.classList.toggle('row-selected', checked);
+  // Sync select-all checkbox
+  const selAll = document.getElementById('selectAllCheckbox');
+  if (selAll) {
+    const frame = WS.frames[WS.currentFrameIdx];
+    const showHidden = document.getElementById('showHidden')?.checked || false;
+    const visibleCount = frame ? frame.fields.filter(f => showHidden || !f.hidden).length : 0;
+    selAll.checked = visibleCount > 0 && WS.selectedFields.size === visibleCount;
+  }
+}
+
+function toggleSelectAll(checked) {
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  const showHidden = document.getElementById('showHidden')?.checked || false;
+  WS.selectedFields = new Set();
+  if (checked) {
+    for (let i = 0; i < frame.fields.length; i++) {
+      if (showHidden || !frame.fields[i].hidden) WS.selectedFields.add(i);
+    }
+  }
+  updateBatchHideButton();
+  renderKeyTable();
+}
+
+function updateBatchHideButton() {
+  const btn = document.getElementById('btnBatchHide');
+  if (!btn) return;
+  const count = WS.selectedFields.size;
+  if (count > 0) {
+    btn.style.display = '';
+    btn.textContent = `隐藏选中 (${count})`;
+  } else {
+    btn.textContent = '隐藏选中 (0)';
+    btn.style.display = WS.batchSelectMode ? '' : 'none';
+  }
+}
+
+function batchHideSelected() {
+  const count = WS.selectedFields.size;
+  if (count === 0) return;
+  if (!confirm(`隐藏选中的 ${count} 个字段？`)) return;
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  for (const idx of WS.selectedFields) {
+    if (frame.fields[idx]) frame.fields[idx].hidden = true;
+  }
+  WS.selectedFields = new Set();
+  WS.batchSelectMode = false;
+  updateBatchSelectButton();
+  renderPreviewContent();
+  renderKeyTable();
+  showToast(`已隐藏 ${count} 个字段`);
+}
+
 function unhideAll() {
   for (const f of WS.frames) for (const fi of f.fields) fi.hidden = false;
   renderPreviewContent();
@@ -1900,6 +2090,117 @@ function deleteHidden() {
   frame.fields = frame.fields.filter(f => !f.hidden);
   showToast(`已删除 ${before - frame.fields.length} 个字段`);
   render();
+}
+
+// ---- New Key Modal ----
+let _nkDragState = null;
+
+function openNewKeyModal() {
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) { showToast('请先选择页面'); return; }
+  document.getElementById('nkDomain').value = WS.domain;
+  document.getElementById('nkPage').value = frame.fields.length > 0 ? frame.fields[0].page : mapFrameToPage(frame.name);
+  document.getElementById('nkTitle').value = '';
+  document.getElementById('nkBody').value = '';
+  document.getElementById('nkModuleCustom').value = '';
+  // Populate module dropdown
+  const modSel = document.getElementById('nkModule');
+  modSel.innerHTML = '<option value="">-- 待选 --</option>' + MODULE_ENUMS.map(m => `<option value="${m}">${m}</option>`).join('');
+  modSel.value = '';
+  // Set preview image
+  const imgUrl = WS.frameImages[frame.id];
+  const img = document.getElementById('nkPreviewImg');
+  if (imgUrl) { img.src = imgUrl; img.style.display = ''; }
+  else { img.src = ''; img.style.display = 'none'; }
+  // Reset selection
+  const sel = document.getElementById('nkSelection');
+  sel.style.display = 'none';
+  delete sel.dataset.relX;
+  document.getElementById('nkPosInfo').textContent = '未选择区域 — 在截图上拖拽以框选位置';
+  _nkDragState = null;
+  showModal('newKeyModal');
+}
+
+function saveNewKey() {
+  const frame = WS.frames[WS.currentFrameIdx];
+  if (!frame) return;
+  const sel = document.getElementById('nkSelection');
+  const relX = parseFloat(sel.dataset.relX);
+  if (isNaN(relX)) { showToast('请在左侧截图上拖拽框选一个区域'); return; }
+  const page = document.getElementById('nkPage').value.trim();
+  const module = document.getElementById('nkModule').value || document.getElementById('nkModuleCustom').value.trim();
+  const title = document.getElementById('nkTitle').value.trim();
+  const body = document.getElementById('nkBody').value.trim();
+  if (!page || !title) { showToast('Page 和 Title 为必填'); return; }
+  const newField = {
+    nodeId: '', text: '', page, module, title, body,
+    hidden: false, zhCN: '', enUS: '', jaJP: '',
+    relX: relX, relY: parseFloat(sel.dataset.relY),
+    relW: parseFloat(sel.dataset.relW), relH: parseFloat(sel.dataset.relH)
+  };
+  frame.fields.push(newField);
+  hideModal('newKeyModal');
+  renderPreviewContent();
+  renderKeyTable();
+  showToast('已创建新 Key');
+}
+
+function setupNewKeyDrag() {
+  const wrap = document.getElementById('nkCanvasWrap');
+  const container = document.getElementById('nkImgContainer');
+  const sel = document.getElementById('nkSelection');
+  const posInfo = document.getElementById('nkPosInfo');
+  if (!wrap || !container) return;
+  wrap.onmousedown = function(e) {
+    const img = document.getElementById('nkPreviewImg');
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    _nkDragState = {
+      startX: (e.clientX - rect.left) / rect.width,
+      startY: (e.clientY - rect.top) / rect.height
+    };
+    sel.style.display = 'block';
+  };
+  wrap.onmousemove = function(e) {
+    if (!_nkDragState) return;
+    const img = document.getElementById('nkPreviewImg');
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    const curX = (e.clientX - rect.left) / rect.width;
+    const curY = (e.clientY - rect.top) / rect.height;
+    const left = Math.min(_nkDragState.startX, curX);
+    const top = Math.min(_nkDragState.startY, curY);
+    const width = Math.abs(curX - _nkDragState.startX);
+    const height = Math.abs(curY - _nkDragState.startY);
+    sel.style.left = (left * 100) + '%';
+    sel.style.top = (top * 100) + '%';
+    sel.style.width = (width * 100) + '%';
+    sel.style.height = (height * 100) + '%';
+  };
+  document.addEventListener('mouseup', function(e) {
+    if (!_nkDragState) return;
+    const img = document.getElementById('nkPreviewImg');
+    if (!img) { _nkDragState = null; return; }
+    const rect = img.getBoundingClientRect();
+    const endX = (e.clientX - rect.left) / rect.width;
+    const endY = (e.clientY - rect.top) / rect.height;
+    const relX = Math.min(_nkDragState.startX, endX);
+    const relY = Math.min(_nkDragState.startY, endY);
+    const relW = Math.abs(endX - _nkDragState.startX);
+    const relH = Math.abs(endY - _nkDragState.startY);
+    if (relW < 0.005 || relH < 0.005) {
+      sel.style.display = 'none';
+      posInfo.textContent = '区域太小，请重新框选';
+      _nkDragState = null;
+      return;
+    }
+    sel.dataset.relX = relX;
+    sel.dataset.relY = relY;
+    sel.dataset.relW = relW;
+    sel.dataset.relH = relH;
+    posInfo.textContent = `已选: ${(relX*100).toFixed(0)}%,${(relY*100).toFixed(0)}% · ${(relW*100).toFixed(0)}%×${(relH*100).toFixed(0)}%`;
+    _nkDragState = null;
+  });
 }
 
 function navFrame(dir) {
@@ -2419,6 +2720,7 @@ document.addEventListener('keydown', function(e) {
 // ============================================================
 (async function init() {
   await loadRules();
+  setupNewKeyDrag();
   render();
 })();
 </script>

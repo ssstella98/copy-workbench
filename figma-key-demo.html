@@ -421,25 +421,22 @@ function getHunyuanAPI() {
   return 'https://api.hunyuan.cloud.tencent.com/v1/chat/completions';
 }
 
-// Universal Hunyuan call — handles both direct API and Worker proxy
-async function callHunyuan(apiKey, model, messages, maxTokens = 300, temperature = 0.3) {
+// Universal Hunyuan fetch — handles both direct API and Worker proxy
+function hunyuanFetch(apiKey, payload) {
   const base = getApiBase();
   if (base) {
-    // Route through Worker proxy
-    const resp = await fetch(base + '/api/proxy/hunyuan', {
+    payload.apiKey = apiKey;
+    return fetch(base + '/api/proxy/hunyuan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, model, messages, max_tokens: maxTokens, temperature })
+      body: JSON.stringify(payload),
     });
-    return resp.json();
   }
-  // Direct API call
-  const resp = await fetch(getHunyuanAPI(), {
+  return fetch(getHunyuanAPI(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature })
+    body: JSON.stringify(payload),
   });
-  return resp.json();
 }
 
 // ============================================================
@@ -728,18 +725,12 @@ async function batchAITranslate() {
     const inputs = batch.map(f => f.text);
 
     try {
-      const resp = await fetch(getHunyuanAPI(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'hunyuan-turbo',
-          max_tokens: 300,
-          temperature: 0.1,
-          messages: [{
-            role: 'user',
+      const resp = await hunyuanFetch(apiKey, {
+        model: 'hunyuan-turbo',
+        max_tokens: 300,
+        temperature: 0.1,
+        messages: [{
+          role: 'user',
             content: `You are a UI copy translator. Translate each Chinese UI string below to an English CamelCase title (max 3 words). Return ONLY a JSON array of strings, same order. No explanation. If a string is not meaningful UI copy (pure numbers, single symbols), return "".
 
 Examples:
@@ -751,8 +742,7 @@ Examples:
 "¥458" → ""
 
 Input: ${JSON.stringify(inputs)}`
-          }]
-        })
+        }]
       });
 
       if (!resp.ok) {
@@ -1445,12 +1435,9 @@ async function generateAICopy() {
   document.getElementById('aiPopupResult').style.display = 'flex';
 
   try {
-    const resp = await fetch(getHunyuanAPI(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'hunyuan-turbo', max_tokens: 300, temperature: 0.3,
-        messages: [{ role: 'user', content: `You are a UI copywriter for Shanghai Disney Resort digital products.
+    const resp = await hunyuanFetch(apiKey, {
+      model: 'hunyuan-turbo', max_tokens: 300, temperature: 0.3,
+      messages: [{ role: 'user', content: `You are a UI copywriter for Shanghai Disney Resort digital products.
 Project context: ${layer1}
 User flow: ${layer2}
 Field hint: ${layer3}
@@ -1468,7 +1455,6 @@ Follow these rules:
 - Variables in camelCase: {couponName}
 
 Return ONLY a JSON object: {"zhCN": "...", "enUS": "..."}` }]
-      })
     });
     if (!resp.ok) throw new Error(`API ${resp.status}`);
     const data = await resp.json();
@@ -1555,12 +1541,9 @@ async function batchAICopy() {
     const hintKey = `${item.frame.id}_${item.fieldIdx}`;
     const layer3 = (WS.layer3Hints || {})[hintKey] || '';
     try {
-      const resp = await fetch(getHunyuanAPI(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: 'hunyuan-turbo', max_tokens: 200, temperature: 0.3,
-          messages: [{ role: 'user', content: `UI copy for Shanghai Disney Resort.
+      const resp = await hunyuanFetch(apiKey, {
+        model: 'hunyuan-turbo', max_tokens: 200, temperature: 0.3,
+        messages: [{ role: 'user', content: `UI copy for Shanghai Disney Resort.
 Context: ${WS.layer1Prompt || ''}
 Flow: ${(WS.layer2Prompts||{})[canvas] || ''}
 ${layer3 ? `Hint: ${layer3}` : ''}
@@ -1568,7 +1551,6 @@ Module: ${f.module||'Other'}. Figma: "${f.text||''}"
 Key: ${buildKey(f, WS.domain)}
 Rules: ZH≤appropriate length, EN active voice, no 最/第一/唯一/国家级, 您 not 你, camelCase variables.
 Return ONLY JSON: {"zhCN":"...","enUS":"..."}` }]
-        })
       });
       if (resp.ok) {
         const data = await resp.json();
@@ -1614,12 +1596,9 @@ async function batchAICompliance() {
 
   try {
     const items = fields.map(f => `Key: ${buildKey(f, WS.domain)}\nZH: ${f.zhCN||''}\nEN: ${f.enUS||''}`).join('\n---\n');
-    const resp = await fetch(getHunyuanAPI(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'hunyuan-turbo', max_tokens: 500, temperature: 0,
-        messages: [{ role: 'user', content: `Review these UI copy strings for compliance. Check:
+    const resp = await hunyuanFetch(apiKey, {
+      model: 'hunyuan-turbo', max_tokens: 500, temperature: 0,
+      messages: [{ role: 'user', content: `Review these UI copy strings for compliance. Check:
 1. 广告法禁用词 (最/第一/唯一/国家级/顶级/极致/绝对)
 2. 国家及地区表述 (下拉用"国家及地区"非"国家", 台港澳前加"中国")
 3. 感叹号使用
@@ -1628,7 +1607,6 @@ async function batchAICompliance() {
 Return ONLY a JSON object: {"results": [{"key":"...", "status":"pass"|"warn"|"fail", "msg":"..."}]}
 
 Copy strings:\n${items}` }]
-      })
     });
     if (!resp.ok) throw new Error(`API ${resp.status}`);
     const data = await resp.json();

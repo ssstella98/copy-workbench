@@ -13,6 +13,16 @@ const router = new Router();
 // Health check (no auth)
 router.get('/api/health', () => json({ ok: true }));
 
+// D1 connectivity test
+router.get('/api/health/db', async (req, env) => {
+  try {
+    const { results } = await env.DB.prepare('SELECT COUNT(*) as count FROM projects').all();
+    return json({ ok: true, db: 'connected', projects: results[0].count });
+  } catch(e) {
+    return json({ ok: false, db: 'error', message: e.message }, 500);
+  }
+});
+
 // Auth check
 router.post('/api/auth/check', (req, env) => {
   const err = requireAuth(req, env);

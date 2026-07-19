@@ -6,7 +6,7 @@ import {
 } from './routes/projects.js';
 import { saveFrames, saveKeys, createKey, updateKey, deleteKey } from './routes/keys.js';
 import { savePrompts, saveCache } from './routes/prompts.js';
-import { figmaProxy, hunyuanProxy } from './routes/proxy.js';
+import { figmaProxy, aiProxy } from './routes/proxy.js';
 
 const router = new Router();
 
@@ -42,7 +42,7 @@ router.put('/api/projects/:id/cache', saveCache);
 
 // ---- API Proxies ----
 router.post('/api/proxy/figma', figmaProxy);
-router.post('/api/proxy/hunyuan', hunyuanProxy);
+router.post('/api/proxy/:provider', aiProxy);  // deepseek or hunyuan
 
 // Wrap all routes with CORS, and apply auth to protected routes
 async function handleWithAuth(req, env, ctx) {

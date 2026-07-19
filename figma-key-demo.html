@@ -446,17 +446,42 @@ function hunyuanFetch(apiKey, payload) {
 }
 
 // ============================================================
-// PERSISTENCE: localStorage (project list) + IndexedDB (data)
+// PERSISTENCE: localStorage + IndexedDB (local) or Worker API (cloud)
 // ============================================================
 const LS_KEY = 'cw_projects';
 const DB_NAME = 'CopyWorkbench';
 const DB_VERSION = 1;
 
-function loadProjects() {
+// ---- API helpers (cloud mode) ----
+function apiFetch(path, options = {}) {
+  const base = getApiBase();
+  if (!base) return null; // cloud mode not configured
+  return fetch(base + path, options);
+}
+
+// ---- Project list (dual: API or localStorage) ----
+async function loadProjects() {
+  const base = getApiBase();
+  if (base) {
+    try {
+      const resp = await fetch(base + '/api/projects');
+      if (!resp.ok) throw new Error('API error');
+      const list = await resp.json();
+      // Normalize keys to match localStorage format
+      return list.map(p => ({
+        id: p.id, name: p.name, domain: p.domain,
+        figmaUrl: p.figma_url || '', figmaFileKey: p.figma_file_key || '',
+        createdAt: p.created_at * 1000, updatedAt: p.updated_at * 1000,
+      }));
+    } catch(e) { console.warn('API loadProjects failed, falling back to localStorage:', e); }
+  }
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
   catch(e) { return []; }
 }
-function saveProjects(list) {
+
+async function saveProjects(list) {
+  // In cloud mode, projects are saved individually via saveProject()
+  // Always keep localStorage in sync for offline fallback
   localStorage.setItem(LS_KEY, JSON.stringify(list));
 }
 
@@ -804,6 +829,7 @@ function parseFileKey(url) {
 }
 
 async function fetchFigmaFile(fileKey, token) {
+  const base = getApiBase();
   for (let attempt = 0; attempt < 6; attempt++) {
     if (attempt > 0) {
       const waitMs = Math.pow(3, attempt) * 2000;
@@ -812,9 +838,18 @@ async function fetchFigmaFile(fileKey, token) {
       await new Promise(r => setTimeout(r, waitMs));
     }
     try {
-      const resp = await fetch(`https://api.figma.com/v1/files/${fileKey}`, {
-        headers: { 'X-FIGMA-TOKEN': token }
-      });
+      let resp;
+      if (base) {
+        resp = await fetch(base + '/api/proxy/figma', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: '/v1/files/' + fileKey, token })
+        });
+      } else {
+        resp = await fetch(`https://api.figma.com/v1/files/${fileKey}`, {
+          headers: { 'X-FIGMA-TOKEN': token }
+        });
+      }
       if (resp.status === 429) continue;
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       return await resp.json();
@@ -923,23 +958,32 @@ function deepScanFrame(meta, rawData) {
 }
 
 async function fetchFrameImages(fileKey, token, imageIds) {
+  const base = getApiBase();
   const images = {};
   const CHUNK = 20;
   for (let i = 0; i < imageIds.length; i += CHUNK) {
     const chunk = imageIds.slice(i, i + CHUNK);
     if (i > 0) await new Promise(r => setTimeout(r, 1500));
-    try {
-      const resp = await fetch(`https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(chunk.join(','))}&scale=2&format=png`, {
+    const doFetch = async () => {
+      if (base) {
+        return fetch(base + '/api/proxy/figma', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: '/v1/images/' + fileKey, params: { ids: chunk.join(','), scale: '2', format: 'png' }, token })
+        });
+      }
+      return fetch(`https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(chunk.join(','))}&scale=2&format=png`, {
         headers: { 'X-FIGMA-TOKEN': token }
       });
+    };
+    try {
+      const resp = await doFetch();
       if (resp.ok) {
         const data = await resp.json();
         if (data.images) Object.assign(images, data.images);
       } else if (resp.status === 429) {
         await new Promise(r => setTimeout(r, 10000));
-        const retry = await fetch(`https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(chunk.join(','))}&scale=2&format=png`, {
-          headers: { 'X-FIGMA-TOKEN': token }
-        });
+        const retry = await doFetch();
         if (retry.ok) { const d = await retry.json(); if (d.images) Object.assign(images, d.images); }
       }
     } catch(e) { console.warn('Image chunk failed:', e); }
@@ -985,12 +1029,12 @@ let EDITING_PROJECT_ID = null; // for edit modal
 // ============================================================
 // RENDER: ROOT
 // ============================================================
-function render() {
+async function render() {
   const root = document.getElementById('appRoot');
   if (!WS.projectId) {
-    root.innerHTML = renderProjectList();
+    root.innerHTML = await renderProjectList();
   } else {
-    root.innerHTML = renderWorkspace();
+    root.innerHTML = await renderWorkspace();
   }
   if (WS.projectId) {
     renderPreviewContent();
@@ -1007,8 +1051,8 @@ function render() {
 // ============================================================
 // RENDER: PROJECT LIST
 // ============================================================
-function renderProjectList() {
-  const projects = loadProjects();
+async function renderProjectList() {
+  const projects = await loadProjects();
   let html = `
     <div class="header">
       <h1>Producer Copy Workbench</h1>
@@ -1044,8 +1088,8 @@ function renderProjectList() {
 // ============================================================
 // RENDER: WORKSPACE
 // ============================================================
-function renderWorkspace() {
-  const proj = loadProjects().find(p => p.id === WS.projectId);
+async function renderWorkspace() {
+  const proj = (await loadProjects()).find(p => p.id === WS.projectId);
   const projName = proj ? proj.name : 'Unknown';
   const hasData = WS.frames.length > 0;
   const hasCopyData = WS.copySaved || (WS.frames.length > 0 && WS.frames.some(f => f.fields.some(fi => fi.zhCN || fi.enUS || fi.jaJP)));
@@ -1658,26 +1702,8 @@ function showComplianceResult(pass, warn, fail, msgs) {
 async function saveCopywriting() {
   saveLayer2Input();
   WS.aiKey = document.getElementById('copyAiKey')?.value?.trim() || WS.aiKey;
-  WS.status = '正在保存...';
-  WS.statusType = 'loading';
-  renderToolbar();
-  try {
-    if (WS.rawData) {
-      await dbPut('figmaData', { projectId: WS.projectId, fileKey: WS.fileKey, rawData: WS.rawData, frameImages: WS.frameImages, figmaUrl: WS.figmaUrl, token: WS.token, aiKey: WS.aiKey, timestamp: Date.now() });
-    }
-    await dbPut('projectKeys', { projectId: WS.projectId, domain: WS.domain, frames: WS.frames.map(f => ({ id: f.id, name: f.name, canvasName: f.canvasName, frameBox: f.frameBox, fields: f.fields })), layer1Prompt: WS.layer1Prompt, layer2Prompts: WS.layer2Prompts, layer3Hints: WS.layer3Hints });
-    WS.copySaved = true;
-    const projects = loadProjects();
-    const idx = projects.findIndex(p => p.id === WS.projectId);
-    if (idx >= 0) { projects[idx].updatedAt = Date.now(); saveProjects(projects); }
-    WS.status = '已保存'; WS.statusType = 'ok';
-    renderToolbar();
-    showToast('文案已保存');
-  } catch(err) {
-    WS.status = '保存失败'; WS.statusType = 'err';
-    renderToolbar();
-    showToast('保存失败: ' + err.message);
-  }
+  // Delegate to saveCurrentProject which handles both cloud and local
+  await saveCurrentProject();
 }
 
 function renderToolbarContent() {
@@ -2337,44 +2363,97 @@ async function saveCurrentProject() {
   WS.statusType = 'loading';
   renderToolbar();
 
+  const base = getApiBase();
+
   try {
-    // Save raw Figma data
+    // Cloud save
+    if (base) {
+      WS.aiKey = document.getElementById('aiApiKey')?.value?.trim() || WS.aiKey;
+      // Save frames
+      const frames = WS.frames.map((f, i) => ({
+        id: f.id, name: f.name, canvasName: f.canvasName,
+        frameBox: f.frameBox, sortOrder: i,
+        figmaImageUrl: WS.frameImages[f.id] || '',
+      }));
+      await fetch(base + '/api/projects/' + WS.projectId + '/frames', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frames }),
+      }).catch(e => console.warn('Cloud frames save failed:', e));
+
+      // Save keys for each frame
+      for (const f of WS.frames) {
+        const keys = f.fields.map((k, i) => ({
+          nodeId: k.nodeId || '', text: k.text || '',
+          page: k.page, module: k.module, title: k.title, body: k.body || '',
+          hidden: k.hidden, zhCN: k.zhCN || '', enUS: k.enUS || '', jaJP: k.jaJP || '',
+          relX: k.relX, relY: k.relY, relW: k.relW, relH: k.relH,
+          sortOrder: i,
+        }));
+        await fetch(base + '/api/projects/' + WS.projectId + '/keys', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ frameId: f.id, keys }),
+        }).catch(e => console.warn('Cloud keys save failed:', e));
+      }
+
+      // Save prompts
+      await fetch(base + '/api/projects/' + WS.projectId + '/prompts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          layer1: WS.layer1Prompt, layer2: WS.layer2Prompts,
+          layer3: WS.layer3Hints, compliance: WS._compliance,
+        }),
+      }).catch(e => console.warn('Cloud prompts save failed:', e));
+
+      // Save Figma cache
+      if (WS.rawData) {
+        await fetch(base + '/api/projects/' + WS.projectId + '/cache', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileKey: WS.fileKey, rawData: WS.rawData, frameImages: WS.frameImages,
+          }),
+        }).catch(e => console.warn('Cloud cache save failed:', e));
+      }
+
+      // Update API project metadata
+      await fetch(base + '/api/projects/' + WS.projectId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ figmaToken: WS.token, hunyuanKey: WS.aiKey, hunyuanProxy: WS.hunyuanProxy }),
+      }).catch(e => console.warn('Cloud project update failed:', e));
+    }
+
+    // Always save locally
     if (WS.rawData) {
       WS.aiKey = document.getElementById('aiApiKey')?.value?.trim() || WS.aiKey;
       await dbPut('figmaData', {
-        projectId: WS.projectId,
-        fileKey: WS.fileKey,
-        rawData: WS.rawData,
-        frameImages: WS.frameImages,
-        figmaUrl: WS.figmaUrl,
-        token: WS.token,
-        aiKey: WS.aiKey,
+        projectId: WS.projectId, fileKey: WS.fileKey,
+        rawData: WS.rawData, frameImages: WS.frameImages,
+        figmaUrl: WS.figmaUrl, token: WS.token, aiKey: WS.aiKey,
         timestamp: Date.now()
       });
     }
-    // Save key data + prompts
     await dbPut('projectKeys', {
-      projectId: WS.projectId,
-      domain: WS.domain,
+      projectId: WS.projectId, domain: WS.domain,
       frames: WS.frames.map(f => ({
         id: f.id, name: f.name, canvasName: f.canvasName,
         frameBox: f.frameBox, fields: f.fields
       })),
-      layer1Prompt: WS.layer1Prompt,
-      layer2Prompts: WS.layer2Prompts,
-      layer3Hints: WS.layer3Hints
+      layer1Prompt: WS.layer1Prompt, layer2Prompts: WS.layer2Prompts, layer3Hints: WS.layer3Hints
     });
 
-    // Update project timestamp
-    const projects = loadProjects();
+    const projects = await loadProjects();
     const idx = projects.findIndex(p => p.id === WS.projectId);
-    if (idx >= 0) { projects[idx].updatedAt = Date.now(); saveProjects(projects); }
+    if (idx >= 0) { projects[idx].updatedAt = Date.now(); await saveProjects(projects); }
 
     WS.copySaved = true;
-    WS.status = '已保存';
+    WS.status = '已保存' + (base ? ' (云端)' : '');
     WS.statusType = 'ok';
     renderToolbar();
-    showToast('项目已保存');
+    showToast('项目已保存' + (base ? ' · 云端同步' : ''));
   } catch(err) {
     console.error('Save failed:', err);
     WS.status = '保存失败';
@@ -2385,6 +2464,55 @@ async function saveCurrentProject() {
 }
 
 async function loadProjectData(projectId) {
+  const base = getApiBase();
+
+  // Try cloud API first
+  if (base) {
+    try {
+      const resp = await fetch(base + '/api/projects/' + projectId);
+      if (resp.ok) {
+        const data = await resp.json();
+        // Restore Figma cache
+        if (data.figmaCache && data.figmaCache.rawData) {
+          WS.rawData = data.figmaCache.rawData;
+          WS.frameImages = data.figmaCache.frameImages || {};
+          WS.fileKey = data.figma_file_key || '';
+          WS.token = data.figma_token || '';
+          WS.aiKey = data.hunyuan_key || '';
+          WS.hunyuanProxy = data.hunyuan_proxy || '';
+          WS.allFrameMetas = scanFigmaFrames(WS.rawData);
+        }
+        // Restore frames & keys
+        if (data.frames && data.frames.length > 0) {
+          WS.frames = data.frames.map(f => {
+            const frameKeys = (data.keys || []).filter(k => k.frame_id === f.id);
+            return {
+              id: f.id, name: f.name, canvasName: f.canvas_name,
+              frameBox: typeof f.frame_box === 'string' ? JSON.parse(f.frame_box) : (f.frame_box || {}),
+              fields: frameKeys.sort((a,b) => a.sort_order - b.sort_order).map(k => ({
+                nodeId: k.node_id || '', text: k.text || '',
+                page: k.page || '', module: k.module || '', title: k.title || '', body: k.body || '',
+                hidden: !!k.hidden, zhCN: k.zh_cn || '', enUS: k.en_us || '', jaJP: k.ja_jp || '',
+                relX: k.rel_x || 0, relY: k.rel_y || 0, relW: k.rel_w || 0, relH: k.rel_h || 0,
+              }))
+            };
+          });
+        }
+        // Restore prompts
+        if (data.prompts) {
+          WS.layer1Prompt = data.prompts.layer1 || '';
+          WS.layer2Prompts = data.prompts.layer2 || {};
+          WS.layer3Hints = data.prompts.layer3 || {};
+          WS._compliance = data.prompts.compliance || {};
+        }
+        WS.copySaved = true;
+        console.log('[Cloud] Project loaded from Worker:', data.name);
+        return true;
+      }
+    } catch(e) { console.warn('Cloud load failed, falling back to local:', e); }
+  }
+
+  // Fallback to IndexedDB
   try {
     const figmaData = await dbGet('figmaData', projectId);
     const keyData = await dbGet('projectKeys', projectId);
@@ -2422,7 +2550,7 @@ async function loadProjectData(projectId) {
 // ============================================================
 // PROJECT CRUD
 // ============================================================
-function openProjectModal(projectId) {
+async function openProjectModal(projectId) {
   EDITING_PROJECT_ID = projectId;
   const title = document.getElementById('projectModalTitle');
   const nameEl = document.getElementById('projName');
@@ -2432,7 +2560,7 @@ function openProjectModal(projectId) {
   const saveBtn = document.getElementById('projSaveBtn');
 
   if (projectId) {
-    const projects = loadProjects();
+    const projects = await loadProjects();
     const p = projects.find(p => p.id === projectId);
     if (p) {
       title.textContent = '编辑项目';
@@ -2453,7 +2581,7 @@ function openProjectModal(projectId) {
   showModal('projectModal');
 }
 
-function saveProject() {
+async function saveProject() {
   const name = document.getElementById('projName').value.trim();
   const domain = document.getElementById('projDomain').value.trim();
   const figmaUrl = document.getElementById('projFigmaUrl').value.trim();
@@ -2461,9 +2589,19 @@ function saveProject() {
 
   if (!name || !domain) { showToast('请填写项目名称和 Domain'); return; }
 
-  const projects = loadProjects();
+  const base = getApiBase();
 
   if (EDITING_PROJECT_ID) {
+    if (base) {
+      try {
+        await fetch(base + '/api/projects/' + EDITING_PROJECT_ID, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, domain, figmaUrl, figmaToken: token })
+        });
+      } catch(e) { console.warn('API update project failed:', e); }
+    }
+    const projects = await loadProjects();
     const idx = projects.findIndex(p => p.id === EDITING_PROJECT_ID);
     if (idx >= 0) {
       projects[idx].name = name;
@@ -2471,17 +2609,34 @@ function saveProject() {
       if (figmaUrl) projects[idx].figmaUrl = figmaUrl;
       projects[idx].updatedAt = Date.now();
     }
+    await saveProjects(projects);
   } else {
     const id = 'proj_' + Date.now();
-    projects.push({
-      id, name, domain,
-      figmaUrl: figmaUrl || '',
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    });
+    if (base) {
+      try {
+        const resp = await fetch(base + '/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, domain, figmaUrl, figmaToken: token, figmaFileKey: parseFileKey(figmaUrl) || '' })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          // Use server-generated ID
+          const projects = await loadProjects();
+          projects.push({ id: data.id, name, domain, figmaUrl: figmaUrl || '', createdAt: Date.now(), updatedAt: Date.now() });
+          await saveProjects(projects);
+          hideModal('projectModal');
+          render();
+          showToast('项目已创建 (云端)');
+          return;
+        }
+      } catch(e) { console.warn('API create project failed:', e); }
+    }
+    const projects = await loadProjects();
+    projects.push({ id, name, domain, figmaUrl: figmaUrl || '', createdAt: Date.now(), updatedAt: Date.now() });
+    await saveProjects(projects);
   }
 
-  saveProjects(projects);
   hideModal('projectModal');
   render();
   showToast(EDITING_PROJECT_ID ? '项目已更新' : '项目已创建');
@@ -2489,8 +2644,12 @@ function saveProject() {
 
 async function deleteProject(projectId) {
   if (!confirm('确定删除此项目？所有保存的 Figma 数据和 Key 将被删除，此操作不可恢复。')) return;
-  const projects = loadProjects().filter(p => p.id !== projectId);
-  saveProjects(projects);
+  const base = getApiBase();
+  if (base) {
+    try { await fetch(base + '/api/projects/' + projectId, { method: 'DELETE' }); } catch(e) {}
+  }
+  const projects = (await loadProjects()).filter(p => p.id !== projectId);
+  await saveProjects(projects);
   try { await dbDelete('figmaData', projectId); } catch(e) {}
   try { await dbDelete('projectKeys', projectId); } catch(e) {}
   render();
@@ -2498,7 +2657,7 @@ async function deleteProject(projectId) {
 }
 
 async function enterProject(projectId) {
-  const projects = loadProjects();
+  const projects = await loadProjects();
   const proj = projects.find(p => p.id === projectId);
   if (!proj) return;
   wsReset();
@@ -2506,7 +2665,6 @@ async function enterProject(projectId) {
   WS.domain = proj.domain;
   WS.figmaUrl = proj.figmaUrl || '';
 
-  // Try loading saved data
   WS.status = '正在加载项目...';
   WS.statusType = 'loading';
   render();

@@ -1,7 +1,10 @@
 import { json, error, parseBody } from '../utils.js';
 
 const FIGMA_BASE = 'https://api.figma.com';
-const HUNYUAN_BASE = 'https://api.hunyuan.cloud.tencent.com';
+const AI_ENDPOINTS = {
+  deepseek: 'https://api.deepseek.com',
+  hunyuan: 'https://api.hunyuan.cloud.tencent.com',
+};
 
 /** POST /api/proxy/figma — proxy Figma REST API calls */
 export async function figmaProxy(req, env) {
@@ -29,23 +32,24 @@ export async function figmaProxy(req, env) {
   return json(data, resp.status);
 }
 
-/** POST /api/proxy/hunyuan — proxy Hunyuan chat completions */
-export async function hunyuanProxy(req, env) {
+/** POST /api/proxy/:provider — generic AI proxy (deepseek / hunyuan) */
+export async function aiProxy(req, env) {
+  const provider = req.params.provider;
+  const baseUrl = AI_ENDPOINTS[provider];
+  if (!baseUrl) return error('Unknown AI provider: ' + provider);
+
   const body = await parseBody(req);
-  const { messages, model, max_tokens, temperature, apiKey, proxyUrl } = body;
+  const { messages, model, max_tokens, temperature, apiKey } = body;
   if (!messages) return error('messages required');
 
-  const tokenToUse = apiKey || '';
-  const hunyuanUrl = (proxyUrl || HUNYUAN_BASE) + '/v1/chat/completions';
-
-  const resp = await fetch(hunyuanUrl, {
+  const resp = await fetch(baseUrl + '/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${tokenToUse}`,
+      'Authorization': `Bearer ${apiKey || ''}`,
     },
     body: JSON.stringify({
-      model: model || 'hunyuan-turbo',
+      model: model || 'deepseek-chat',
       messages,
       max_tokens: max_tokens || 300,
       temperature: temperature != null ? temperature : 0.3,

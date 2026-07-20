@@ -55,11 +55,13 @@
 
 ### 3. AI 模型
 
-- **腾讯混元（Hunyuan）**，OpenAI 兼容接口
-- Endpoint: `https://api.hunyuan.cloud.tencent.com/v1/chat/completions`
-- Model: `hunyuan-turbo`
-- 前端通过本地代理 `server.py` 转发请求（解决浏览器 CORS 限制）
-- API 调用统一走常量 `HUNYUAN_API`（`/api/hunyuan/v1/chat/completions`）
+- **腾讯混元（Hunyuan）**，经 **TokenHub 网关**访问，OpenAI 兼容接口
+- Endpoint: `https://tokenhub.tencentmaas.com/v1/chat/completions`
+- Model: `hy3`
+- 鉴权：`Authorization: Bearer <key>`（key 在腾讯 TokenHub 生成，以 `sk-` 开头）
+- TokenHub 默认可能流式返回，前端调用已强制 `stream: false`
+- 前端通过本地代理（`server.py` / `proxy.rb`）转发到 TokenHub，解决浏览器 CORS 限制
+- API 调用统一走常量 `AI_CONFIG.hunyuan`（endpoint + model），请求路径为 `/api/hunyuan/v1/chat/completions`
 
 ### 4. 项目管理
 
@@ -87,16 +89,22 @@
 
 **主文件：** `figma-key-demo.html`（单文件，~2,500+ 行）
 
-**启动方式：**
+**启动方式（任选其一）：**
 ```bash
-cd "/Users/stella98/Desktop/达贡族/迪士尼/Producer Flow"
+# 方式 A：Python（需已安装 python3）
+cd "<项目目录>"
 python3 server.py
+
+# 方式 B：Ruby（macOS 自带，无需安装，无 python3 时首选）
+cd "<项目目录>"
+ruby proxy.rb
+
 # 浏览器打开 http://localhost:8080/figma-key-demo.html
 ```
-> `server.py` 同时提供静态文件服务 + 混元 API 代理（解决浏览器 CORS 限制）。
-> 混元 API 调用走 `/api/hunyuan/*` → `https://api.hunyuan.cloud.tencent.com/*`。
+> 本地服务器同时提供静态文件服务 + AI API 代理（解决浏览器 CORS 限制）。
+> AI API 调用走 `/api/hunyuan/*` → `https://tokenhub.tencentmaas.com/*`（TokenHub 网关）。
 
-**绝对不能**用 `file://` 协议打开——CORS 会拦截 Figma API 调用。
+> 若新电脑装不了 python3，用 `ruby proxy.rb` 即可（功能等价）。注意 `proxy.rb` 用 `req['Authorization']` 大小写不敏感读取请求头，确保 key 被转发；旧写法 `req.header['Authorization']` 会因 WEBrick 头名小写化而丢 key，导致 401。
 
 ---
 
@@ -124,7 +132,7 @@ python3 server.py
 
 ## 绝对不要踩的坑
 
-1. **不要用 `file://` 打开 HTML** → Figma API 会被 CORS 拦截。必须用 `python3 server.py` 启动 localhost 访问。
+1. **尽量用 localhost 启动（非 `file://`）** → 当前实测 Figma API 与 TokenHub 网关都已返回 CORS 头，`file://` 直连也能工作（AI 翻译、Figma 拉取可用）；但 Chrome 在 `file://`（opaque origin）下可能禁用 IndexedDB，导致项目保存失败 / 刷新丢数据。优先用 `ruby proxy.rb` 或 `python3 server.py` 起 localhost，IndexedDB 才完全可用。
 
 2. **不要一次传太多 Figma image ID** → `/v1/images` 端点 URL 长度有限制，超过 20 个 ID 会 400。已改成分块 20 个 + 间隔 1.5s。
 

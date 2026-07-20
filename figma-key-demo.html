@@ -399,12 +399,12 @@
 // CONFIG — AI Model
 // ============================================================
 // Set AI_PROVIDER to 'deepseek' or 'hunyuan'
-// DeepSeek: works on personal computer (no CORS issues), may be blocked by corporate IT
-// Hunyuan: needs local proxy (ruby proxy.rb) for CORS bypass on any network
-const AI_PROVIDER = 'deepseek'; // ← switch here
+// 项目设计使用腾讯混元(Hunyuan)：通过本地 server.py 代理 /api/hunyuan/* 解决 CORS（见 HANDOFF.md §3/§坑1）
+// DeepSeek 走浏览器直连，对带 Authorization 的跨域 POST 不返回 CORS 头，易被浏览器拦截，且当前服务不稳定，不推荐
+const AI_PROVIDER = 'hunyuan'; // ← 切换模型：'hunyuan' | 'deepseek'
 const AI_CONFIG = {
   deepseek: { endpoint: 'https://api.deepseek.com/v1/chat/completions', model: 'deepseek-chat' },
-  hunyuan:  { endpoint: 'https://api.hunyuan.cloud.tencent.com/v1/chat/completions', model: 'hunyuan-turbo' },
+  hunyuan:  { endpoint: 'https://tokenhub.tencentmaas.com/v1/chat/completions', model: 'hy3' },
 };
 const AI_ENDPOINT = AI_CONFIG[AI_PROVIDER].endpoint;
 const AI_MODEL = AI_CONFIG[AI_PROVIDER].model;
@@ -430,6 +430,7 @@ function getAIEndpoint() {
 
 function hunyuanFetch(apiKey, payload) {
   const base = getApiBase();
+  payload.stream = false; // TokenHub may default to streaming; force JSON response
   if (base) {
     payload.apiKey = apiKey;
     return fetch(base + '/api/proxy/' + AI_PROVIDER, {

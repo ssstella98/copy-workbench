@@ -10,7 +10,7 @@ require 'uri'
 require 'json'
 
 PORT = 8080
-HUNYUAN_HOST = 'api.hunyuan.cloud.tencent.com'
+HUNYUAN_HOST = 'tokenhub.tencentmaas.com'
 
 server = WEBrick::HTTPServer.new(
   Port: PORT,
@@ -41,10 +41,13 @@ server.mount_proc '/api/hunyuan' do |req, res|
     http.read_timeout = 60
 
     request = Net::HTTP::Post.new(uri.path)
-    # Forward headers
+    # Forward headers.
+    # NOTE: WEBrick stores header names in lowercase, so req.header['Authorization']
+    # returns nil. Use req['Name'] (case-insensitive) to actually read the value,
+    # otherwise the API key is dropped and Hunyuan returns 401 "Incorrect API key".
     %w[Content-Type Authorization].each do |h|
-      val = req.header[h]
-      request[h] = val.first if val
+      val = req[h]
+      request[h] = val if val
     end
     request.body = req.body
 

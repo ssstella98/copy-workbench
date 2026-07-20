@@ -395,6 +395,9 @@
 ```
 Producer Flow/
 ├── figma-key-demo.html              # 主程序
+├── server.py                        # 本地开发服务器（静态文件 + AI API 代理，Python）
+├── proxy.rb                         # 本地开发服务器（Ruby 等价实现，无 python3 时首选）
+├── HANDOFF.md                       # 开发交接文档（运行方式 + 已知坑）
 ├── copywriting-proto.html           # Copywriting Tab 原型图
 ├── Spec-figma-key-demo.md           # 本文档
 ├── Tech-Brief.md                    # 技术概要
